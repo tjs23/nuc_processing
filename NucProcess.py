@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE, call
 from matplotlib import pyplot as plt
 from NucSvg import SvgDocument
 
-PROG_NAME = 'NucProcess'
+PROG_NAME = 'nuc_process'
 VERSION = '1.0.0'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
@@ -745,7 +745,7 @@ def pair_sam_lines(line1, line2):
 
 
 def _sort_sam_file_ids(sam_file_path, buf_size=2**16):
-  # This function only needed if Bowtie2 does not use --reorder option but boes use multiple cores (-p option)
+  # This function only needed if Bowtie2 does not use --reorder option but does use multiple cores (-p option)
   
   sort_sam_file_name = tag_file_name(sam_file_path, 'sort', '.sam')
   
@@ -786,25 +786,13 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
   paired_ncc_file_name = tag_file_name(file_root, 'pair', '.ncc')
   ambig_ncc_file_name = tag_file_name(file_root, 'pair_ambig', '.ncc')
   
-  """
-  if os.path.exists(paired_ncc_file_name):
-    n_pairs = 1178227
-    stats = [('end_1_aligned',1443308), ('end_2_aligned',1448627),
-             ('unmapped_end',(112491, n_pairs)),
-             ('unique',(785003, n_pairs)),
-             ('ambiguous',(280733, n_pairs)),
-             ('total_pairs',n_pairs)]
- 
-    return paired_ncc_file_name, ambig_ncc_file_name, stats   
-  """
-  
   ncc_file_obj = open(paired_ncc_file_name, 'w')
   write_pair = ncc_file_obj.write
 
   ambig_ncc_file = open(ambig_ncc_file_name, 'w')
   write_ambig = ambig_ncc_file.write
     
-  sort_sam_file1 = sam_file1 #_sort_sam_file_ids(sam_file1)
+  sort_sam_file1 = sam_file1 #_sort_sam_file_ids(sam_file1) # Only needed if Bowtie2 does not use --reorder option
   sort_sam_file2 = sam_file2 #_sort_sam_file_ids(sam_file2)
     
   file_obj1 = open_file_r(sort_sam_file1)
@@ -958,7 +946,6 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
           for ncc_b, score_b in contact_b:
             write_ncc(ncc_a, ncc_b, n_pairs, int(_id), False)
  
-        
   #os.unlink(sort_sam_file1)
   #os.unlink(sort_sam_file2)
     
@@ -983,17 +970,6 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig=False, verbose
   
   sam_file_path = tag_file_name(fastq_file, '', '.sam')
   
-  """
-  if os.path.exists(sam_file_path):
-  
-    n_reads = 1151564
-    stats = [('input_reads',n_reads),
-           ('unique',(802283, n_reads)),
-           ('ambiguous',(297063, n_reads)),
-           ('unmapped',(52218, n_reads))]
-           
-    return sam_file_path, stats
-  """
   
   cmd_args = [align_exe]
     
@@ -1052,17 +1028,6 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, tag='clipped', mi
   """
   
   clipped_file = tag_file_name(file_root, tag, '.fastq')
-  
-  """
-  if os.path.exists(clipped_file):
-    n_reads = 1178958
-    stats = [('input_reads',n_reads),
-             ('clipped',(387064, n_reads)),
-             ('too_short',(27394, n_reads)),
-             ('mean_length',64)]
- 
-    return clipped_file, stats
-  """
   
   in_file_obj = open_file_r(fastq_file)
   n_rep = len(replaced_seq)
@@ -2276,7 +2241,6 @@ if __name__ == '__main__':
  
   arg_parse.add_argument('-u', default=False, action='store_true',
                          help='Whether to only accept uniquely mapping genome positions and not attempt to resolve certain classes of ambigous mapping.')
-
   
   args = vars(arg_parse.parse_args())
   
@@ -2325,7 +2289,7 @@ if __name__ == '__main__':
   # To think about:
   #  - could clip sequences on a quality score threshold
   #  - could add an option to separate isolated contacts
-  #  - barcode demultiplexing sould be a related but separate program
+  #  - barcode demultiplexing should be a related but separate program
   #  - options for different RE strategies, e.g. no fill-in of sticky ends etc.
   #  - population option not exclude unsupported/single read pairs,  low-mappabaility regions
   #  - normalise/correct population data?
