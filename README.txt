@@ -8,7 +8,7 @@ knowledge of experimental parameters (restriction enzyme type and the range of
 size of DNA fragments sequenced in the library) to create processed, single-cell
 Hi-C contact files. By default, the ouptput is generated in Nuc Chromoatin
 Contact (NCC) format, which is a simple text based format described below. A
-processing report document will also be generated for each run in SVG format
+processing report document will also be generated for each run; in SVG format
 that can be viewed in most web browsers.
 
 To run NucProcess issue the 'nuc_process' command with the command line options
@@ -20,7 +20,7 @@ enzyme in double-digest experiments).
 IMPORTANT: If the files for the genome index and the corresponding restriction
 enzyme (RE) cut location files have not been created they will be generated
 automatically by NucProcess so long as the -f option is specfied. This option
-specifies the location of complete chromosomal sequences in FASTQ format,
+specifies the location of complete chromosomal sequences in FASTA format,
 typically by using a wildcard specification. Once these files are present the -f
 option need not be specified, but it will not trigger the re-creation of the
 files unless the -m or -x options are used (or if files are deleted).
@@ -69,8 +69,9 @@ Typical use thereafter:
 
 For the above commands:
 
--f /chromosomes/*.fa states that all files ending in .fa in the /chromosomes/
-directory will be used for creation of the genome index and RE cut site files
+-f /chromosomes/*.fa states that all FASTA files (ending in .fa) in the
+/chromosomes/ directory will be used for creation of the genome index and RE cut
+site files
 
 -o spcifies CELL_1 will be used for naming the output. In this case the main
 output contact file will be CELL_1.ncc
