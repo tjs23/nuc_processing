@@ -1484,6 +1484,7 @@ def warn(msg, prefix='WARNING'):
 def fatal(msg, prefix='%s FAILURE' % PROG_NAME):
 
   print('%8s : %s' % (prefix, msg))
+  print('Use %s with -h to display command line options' % PROG_NAME)
   sys.exit(0)
 
 
@@ -2201,7 +2202,7 @@ if __name__ == '__main__':
                          help='Optional output name for ambiguous contact NCC file')
 
   arg_parse.add_argument('-or', metavar='REPORT_FILE',
-                         help='Optional output name for HTML report file')
+                         help='Optional output name for SVG format report file')
 
   arg_parse.add_argument('-b', metavar='EXE_FILE',
                          help='Path to bowtie2 (read aligner) executable (will be searched for if not specified)')

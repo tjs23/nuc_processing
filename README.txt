@@ -3,10 +3,10 @@ NucProcess
 
 NucProcess is a Python program to perform single-cell Hi-C sequence processing
 of paired read data. This software takes paired FASTQ sequence read files
-(representing HiC data for only ONE cell), a reference genome sequence and
+(representing Hi-C data for only ONE cell), a reference genome sequence and
 knowledge of experimental parameters (restriction enzyme type and the range of
 size of DNA fragments sequenced in the library) to create processed, single-cell
-Hi-C contact files. By default, the ouptput is generated in Nuc Chromoatin
+Hi-C contact files. By default, the output is generated in Nuc Chromatin
 Contact (NCC) format, which is a simple text based format described below. A
 processing report document will also be generated for each run; in SVG format
 that can be viewed in most web browsers.
@@ -17,11 +17,15 @@ are mandatory, though its is usual to also use -re1 (primary restriction enzyme.
 Default is MboI), -o (root name of output files) and -re2 (secondary restriction
 enzyme in double-digest experiments).
 
+NucProcess also includes the 'nuc_contact_map' program which takes the contact
+data from 'nuc_process' (NCC format) to make all-chromosome contact map
+graphics in SVG format. 
+
 IMPORTANT: If the files for the genome index and the corresponding restriction
 enzyme (RE) cut location files have not been created they will be generated
-automatically by NucProcess so long as the -f option is specfied. This option
+automatically by NucProcess so long as the -f option is specified. This option
 specifies the location of complete chromosomal sequences in FASTA format,
-typically by using a wildcard specification. Once these files are present the -f
+typically by using a wild-card specification. Once these files are present the -f
 option need not be specified, but it will not trigger the re-creation of the
 files unless the -m or -x options are used (or if files are deleted).
 
@@ -73,20 +77,20 @@ For the above commands:
 /chromosomes/ directory will be used for creation of the genome index and RE cut
 site files
 
--o spcifies CELL_1 will be used for naming the output. In this case the main
+-o species CELL_1 will be used for naming the output. In this case the main
 output contact file will be CELL_1.ncc
 
--v spcifies verbose output of processing progress
+-v species verbose output of processing progress
 
--a spcifies to generate ambigous contact files: CELL_1_ambig.ncc in this case
+-a species to generate ambiguous contact files: CELL_1_ambig.ncc in this case
 
--k spcifies to keep all the intermediate processing files: filered NCC files,
+-k specifies to keep all the intermediate processing files: Filtered NCC files,
 clipped FASTQ files and the main Bowtie2 mapping SAM files 
 
--re1 is the primary restrition enzyme type at the ligation junction (see
+-re1 is the primary restriction enzyme type at the ligation junction (see
 enzymes.conf)
 
--re2 is the secondary restriction enzyme ued to release the fragments (option
+-re2 is the secondary restriction enzyme used to release the fragments (option
 not used for Nextera based protocol)
 
 -s is the valid molecule/fragment size range, as used in the DNA sequencing
@@ -97,10 +101,19 @@ not used for Nextera based protocol)
 extension and in this case would refer to files GENOME_BUILD.1.bt2,
 GENOME_BUILD.rev.1.bt2 etc.
 
--i SEQUENCING_DATA_r_?.fq is a wildcard expression matching the two input FASTQ
+-i SEQUENCING_DATA_r_?.fq is a wild-card expression matching the two input FASTQ
 files (though two separate file names, separated by a space can be specified).
 In this case the expression would match SEQUENCING_DATA_r_1.fq and
 SEQUENCING_DATA_r_2.fq - the paired sequence read files.
+
+
+To generate contact map graphics from an NCC format file:
+
+  nuc_contact_map -i CELL_1.ncc
+
+
+This will generate the output graphics file CELL_1_contact_map.svg. However, the
+output file name maye be specified via the -o option.
 
 
 
@@ -112,7 +125,7 @@ lines, where each line represents a different chromosomal contact that pairs two
 chromosomal regions. This format specifies more than just the chromosome contact
 map: it also records the original read locations within the (ligated) primary RE
 digest fragments, strand information, ambiguity information and information to
-relate the data back to the original FASTQ input files. Accoringly this format
+relate the data back to the original FASTQ input files. Accordingly this format
 can be used for data filtering and validation.
 
 The columns of NCC files correspond to: 
@@ -144,8 +157,8 @@ For example two lines could be:
 
 
 
-Command line options
---------------------
+Command line options for nuc_process
+------------------------------------
 
 usage: nuc_process [-h] [-i FASTQ_FILE FASTQ_FILE] [-g GENOME_FILE]
                    [-re1 ENZYME] [-re2 ENZYME] [-s SIZE_RANGE] [-n CPU_COUNT]
@@ -160,26 +173,26 @@ optional arguments:
   -h, --help            show this help message and exit
   -i FASTQ_FILE FASTQ_FILE
                         Input paired-read FASTQ files to process (accepts
-                        wildcards that match two files)
+                        Wild-cards that match two files)
   -g GENOME_FILE        Genome index file to map sequence reads to. A new
                         index will be created with this name if the index is
                         missing and genome FASTA files are specified
   -re1 ENZYME           Primary restriction enzyme (for ligation junctions).
                         Default: MboI. Available: AluI, BglII, MboI
-  -re2 ENZYME           Secondary restruction enzyme (if used). Available:
+  -re2 ENZYME           Secondary restriction enzyme (if used). Available:
                         AluI, BglII, MboI
   -s SIZE_RANGE         Allowed range of sequenced molecule sizes, e.g.
                         "150-1000", "100,800" or "200" (no maximum)
   -n CPU_COUNT          Number of CPU cores to use in parallel
-  -r COUNT              Mimimum number of sequencing repeats required to
+  -r COUNT              Minimum number of sequencing repeats required to
                         support a contact
-  -o NCC_FILE           Optional output name for NCC format chromsome contact
+  -o NCC_FILE           Optional output name for NCC format chromosome contact
                         file
   -oa NCC_FILE          Optional output name for ambiguous contact NCC file
   -or REPORT_FILE       Optional output name for HTML report file
   -b EXE_FILE           Path to bowtie2 (read aligner) executable (will be
                         searched for if not specified)
-  -q SCHEME             Use a specific FASTQ quility scheme (normally not set
+  -q SCHEME             Use a specific FASTQ quality scheme (normally not set
                         and deduced automatically). Available: integer,
                         phred33, phred64, solexa
   -m                    Force a re-mapping of genome restriction enzyme sites
@@ -189,8 +202,8 @@ optional arguments:
   -x, --reindex         Force a re-indexing of the genome (given appropriate
                         FASTA files)
   -f FASTA_FILES [FASTA_FILES ...]
-                        Specify genome FASTA files for index bilding (accepts
-                        wildcards)
+                        Specify genome FASTA files for index building (accepts
+                        Wild-cards)
   -a                    Whether to report ambiguously mapped contacts
   -k                    Keep any intermediate files (e.g. clipped FASTQ etc).
                         Note initial, primary SAM files are always kept.
@@ -201,7 +214,34 @@ optional arguments:
   -v, --verbose         Display verbose messages to report progress
   -u                    Whether to only accept uniquely mapping genome
                         positions and not attempt to resolve certain classes
-                        of ambigous mapping.
+                        of ambiguous mapping.
 
 Note enzymes.conf can be edited to add further restriction enzyme cut-site
-defintions. For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk
+definitions. 
+
+
+
+Command line options for nuc_contact_map
+----------------------------------------
+
+usage: nuc_contact_map [-h] [-i NCC_FILE] [-o SVG_FILE] [-w SVG_WIDTH]
+                       [-s BIN_SIZE] [-b] [-c RGB_COLOR]
+
+Chromatin contact (NCC format) Hi-C contact map display module for Nuc3D and
+NucTools
+
+optional arguments:
+  -h, --help    show this help message and exit
+  -i NCC_FILE   Input NCC format chromatin contact file
+  -o SVG_FILE   Optional output name for SVG format contact map output
+  -w SVG_WIDTH  SVG document width
+  -s BIN_SIZE   Sequence region size represented by each small square (the
+                resolution) in megabases. Default is 5 kb
+  -b            Specifies that the contact map should have a black background
+                (default is white)
+  -c RGB_COLOR  Optional main color for the contact points as a 24-bit
+                hexidecimal RBG code e.g. "#0080FF" (with quotes)
+
+For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk
+
+
