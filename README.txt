@@ -78,12 +78,12 @@ For the above commands:
 /chromosomes/ directory will be used for creation of the genome index and RE cut
 site files
 
--o species CELL_1 will be used for naming the output. In this case the main
+-o specifies CELL_1 will be used for naming the output. In this case the main
 output contact file will be CELL_1.ncc
 
--v species verbose output of processing progress
+-v specifies verbose output of processing progress
 
--a species to generate ambiguous contact files: CELL_1_ambig.ncc in this case
+-a specifies to generate ambiguous contact files: CELL_1_ambig.ncc in this case
 
 -k specifies to keep all the intermediate processing files: Filtered NCC files,
 clipped FASTQ files and the main Bowtie2 mapping SAM files 
