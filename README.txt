@@ -46,7 +46,7 @@ many cells, each with a different barcode sequence, into separate paired read
 files. The script can be run as follows, specifying the names of the two paired,
 multiplex FASTQ read files after the script:
 
-  python splitFastqBarcodes.py MULTIPLEXED_DATA_r_1.fq MULTIPLEXED_DATA_r_1.fq
+  python splitFastqBarcodes.py MULTIPLEXED_DATA_r_1.fq MULTIPLEXED_DATA_r_2.fq
 
 This will generate paired FASTQ files of the form:
 

@@ -99,6 +99,6 @@ if __name__ == '__main__':
   
   in_files = sys.argv[1:]
   in_file_1, in_file2 = in_files[:2]
-  out_dir = os.path.dirname(in_file_1)
-
+  out_dir = os.path.dirname(os.path.abspath(in_file_1))
+  
   main(in_file_1, in_file2, out_dir)

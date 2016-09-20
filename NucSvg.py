@@ -1,6 +1,8 @@
 from collections import defaultdict
 from math import sin, cos, pi
-import colorsys
+import colorsys, base64, cStringIO
+import numpy as np
+from scipy import misc
 
 TAU = 2*pi
 LINE_TYPE = 'line'
@@ -23,6 +25,11 @@ class SvgDocument(object):
   def clear(self):
     
     self._svg_lines = []
+  
+  
+  def svg(self, width, height):
+    
+    return self._svg_head(width, height) + self._svg_lines + self._svg_tail()
     
   
   def write_file(self, file_name, width, height):
@@ -38,7 +45,7 @@ class SvgDocument(object):
   def _svg_head(self, width, height):
 
     head1 = '<?xml version="1.0"?>\n'
-    head2 = '<svg height="%d" width="%d" xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny">\n' % (height,width)
+    head2 = '<svg height="%d" width="%d" image-rendering="optimizeSpeed" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.2" baseProfile="tiny">\n' % (height,width)
     
     return head1, head2
     
@@ -169,6 +176,18 @@ class SvgDocument(object):
     self._svg_lines += line
   
   
+  def image(self, x, y, w, h, data):
+  
+    io = cStringIO.StringIO()
+    img = misc.toimage(data)
+    img.save(io, format="PNG")
+    base_64_data = base64.b64encode(io.getvalue())
+     
+    line = '     <image x="%d" y="%d" width="%d" height="%d" xlink:href="data:image/png;base64,%s" />\n' % (x, y, w, h, base_64_data)
+     
+    self._svg_lines += line
+      
+      
   def _graph_get_draw_coords(self, data_points, data_region, plot_region):
 
     dr0, dr1, dr2, dr3 = data_region
@@ -245,8 +264,162 @@ class SvgDocument(object):
       points[i] = (x, y, e)   
 
     return x_min, x_max, y_min, y_max
-
   
+  def _hex_to_rgb(self, hex_code):
+    
+    r = int(hex_code[1:3], 16)
+    g = int(hex_code[3:5], 16)
+    b = int(hex_code[5:7], 16)
+    
+    return r, g, b
+
+  def _default_color_func(self, matrix, pos_color, neg_color, bg_color):
+    
+    n, m = matrix.shape
+    color_matrix = np.zeros((n, m, 3), float)
+    rgb0 = np.array(self._hex_to_rgb(bg_color), float)
+    rgbP = np.array(self._hex_to_rgb(pos_color), float)
+    rgbN = np.array(self._hex_to_rgb(neg_color), float)
+    
+    
+    for i in range(n):
+      for j in range(m):
+        f = matrix[i,j]
+        
+        if f > 0:
+          g = 1.0 - f
+          color_matrix[i,j] = (g * rgb0) + (f * rgbP)
+          
+        elif f < 0:
+          f *= -1
+          g = 1.0 - f
+          color_matrix[i,j] = (g * rgb0) + (f * rgbN)
+        else:
+          color_matrix[i,j] = rgb0
+
+    color_matrix = np.clip(color_matrix, 0, 255)
+    color_matrix = np.array(color_matrix, dtype=np.uint8)
+  
+    return color_matrix
+    
+  
+  def density_matrix(self, matrix, width, height=None, x_grid=None, y_grid=None,
+                     x_labels=None, y_labels=None, x_axis_label=None, y_axis_label=None, 
+                     line_color='#000000', bg_color='#FFFFFF', grid_color='#808080',
+                     pos_color='#0080FF', neg_color='#FF4000', color_func=None,
+                     font=None, font_size=16, line_width=1, plot_offset=(50, 50),
+                     value_range=None, scale_func=None):
+    
+    pad = font_size + font_size / 4
+    
+    if not height:
+      height = width
+    
+    if not font:
+      font = self.font  
+    
+    if not color_func:
+      color_func = lambda x, p=pos_color, n=neg_color, b=bg_color: self._default_color_func(x, p, n, b)
+    
+    c_matrix = np.array(matrix)
+    
+    if value_range:
+      a, b = value_range
+      c_matrix = np.clip(c_matrix, a, b)
+    
+    if scale_func:
+      c_matrix = scale_func(c_matrix)
+    
+    c_matrix /= max(c_matrix.max(), -c_matrix.min())
+    
+    n, m = c_matrix.shape
+    
+    x_box = width/float(m)
+    y_box = height/float(n)
+       
+    x0, y0 = plot_offset
+    
+    x1, y1 = x0, y0
+    
+    if y_labels:
+      x1 += pad
+    
+    if y_axis_label:
+      x1 += pad
+    
+    x2 = x1 + width
+    y2 = y1 + height
+    
+    c_matrix = color_func(c_matrix)
+            
+    self.rect((x1, y1, x2, y2), color=line_color, fill=bg_color)
+    
+    self.image(x1, y1, width, height, c_matrix)
+            
+    if x_grid:
+      for val in x_grid:
+        x = x1 + val * x_box
+        self.line((x,y1,x,y2), color=grid_color, line_width=line_width)
+        
+    if y_grid:
+      for val in y_grid:
+        y = y1 + val * y_box
+        self.line((x1,y,x2,y), color=grid_color, line_width=line_width)
+    
+    y3 = y2 + font_size
+    x3 = x1 - font_size/2
+    
+    if x_labels:
+      for i, val in enumerate(x_labels):
+        if isinstance(val, (tuple, list)):
+          x, t = val
+        
+        else:
+          t = val  
+          x = i
+        
+        x = min(float(m), max(0.0, x))
+        
+        x = x1 + +x_box/2.0 + x * x_box
+    
+        self.text(t, (x, y3), anchor='middle', size=font_size-2, bold=False, font=font, color=line_color, angle=None, vert_align=None)
+      
+      y3 += pad
+       
+    if y_labels:
+      for i, val in enumerate(y_labels):
+        if isinstance(val, (tuple, list)):
+          y, t = val
+        
+        else:
+          t = val  
+          y = i
+        
+        y = min(float(n), max(0.0, y))
+        y = y1 + y_box/2.0 + y * y_box
+    
+        self.text(t, (x3, y), anchor='middle', size=font_size-2, bold=False, font=font, color=line_color, angle=270, vert_align=None)
+      
+      x3 -= pad
+    
+    if x_axis_label:
+      x = m/2.0
+      x = x1 + x * x_box
+      
+      self.text(x_axis_label, (x, y3), anchor='middle', size=font_size, bold=False, font=font, color=line_color, angle=None, vert_align=None)
+    
+      y3 += pad 
+
+    if y_axis_label:
+      y = n/2.0
+      y = y1 + y * y_box
+    
+      self.text(y_axis_label, (x3, y), anchor='middle', size=font_size, bold=False, font=font, color=line_color, angle=270, vert_align=None)
+    
+      x3 += pad 
+         
+         
+         
   def graph(self, x, y, width, height, data_lists, x_label, y_label,
             names=None, colors=None,  graph_type=LINE_TYPE,
             symbols=None, line_widths=None, symbol_sizes=None,
@@ -689,9 +862,9 @@ if __name__ == '__main__':
 
 
   svg_doc = SvgDocument()
-   
   height = 1200
   
+  """ 
   vals = [99, 44, 11]
   
   names = list('ABC')
@@ -704,6 +877,23 @@ if __name__ == '__main__':
                 names=None, colors=None,  graph_type='line',
                 symbols=None, line_widths=None, symbol_sizes=None,
                 legend=False, title=None, plot_offset=(100, 50))
+  """
   
+  xx = [x/10.0 for x in range(1,11)]
+  yy = [x*x for x in xx]
+
+  data = []
+  for x in xx:
+    data.append([])
+    for y in yy:
+      data[-1].append(x*y - 0.4)
+  
+  labels = list('ABCDEFGHIJ')
+      
+  svg_doc.density_matrix(data, 500, 500, x_grid=[5.0], y_grid=[5.0],
+                   x_labels=labels, y_labels=labels, x_axis_label='X axis', y_axis_label='Y axis',
+                   font=None, font_size=16, line_width=1, plot_offset=(50, 50),
+                   value_range=None, scale_func=None)
+   
   svg_doc.write_file('Test_chart.svg', height, height)
 

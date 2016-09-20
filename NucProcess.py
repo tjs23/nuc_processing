@@ -5,6 +5,8 @@ from collections import defaultdict
 from subprocess import Popen, PIPE, call
 from matplotlib import pyplot as plt
 from NucSvg import SvgDocument
+from NucContactMap import nuc_contact_map
+
 
 PROG_NAME = 'nuc_process'
 VERSION = '1.0.0'
@@ -455,7 +457,7 @@ def filter_pairs(pair_ncc_file, re1_file, re2_file=None, sizes=(100,2000), too_c
   
   for tag in ('accepted', 'too_small', 'too_big', 'circular_re1', 'internal_re1',
               'internal_re2', 'no_end_re2', 'overhang_re1', 'too_close',
-              'adjasent_re1', 'low_mappability', 'unknown_contig'):
+              'adjacent_re1', 'low_mappability', 'unknown_contig'):
     counts[tag] = 0
     
     if keep_files or (tag == 'accepted'):
@@ -606,7 +608,7 @@ def filter_pairs(pair_ncc_file, re1_file, re2_file=None, sizes=(100,2000), too_c
           count_write('internal_re1', line)
 
       elif abs(re1_a_idx-re1_b_idx) < 2: 
-        count_write('adjasent_re1', line) # Mostly re-ligation
+        count_write('adjacent_re1', line) # Mostly re-ligation
  
       else: # Different re1 fragment
         
@@ -657,7 +659,7 @@ def filter_pairs(pair_ncc_file, re1_file, re2_file=None, sizes=(100,2000), too_c
   n = counts['input_pairs']
   sort_counts = []
   for key in ('input_pairs', 'accepted', 'near_cis_pairs', 'far_cis_pairs', 'trans_pairs',
-              'internal_re1', 'adjasent_re1', 'circular_re1', 'overhang_re1',
+              'internal_re1', 'adjacent_re1', 'circular_re1', 'overhang_re1',
               'too_close', 'too_small', 'too_big',
               'internal_re2', 'no_end_re2',
               'low_mappability', 'unknown_contig'):
@@ -1693,7 +1695,7 @@ def write_report(report_file, frag_sizes, general_stats, clip_stats1, clip_stats
   y += head_pad
   data = format_list(filter_stats)
   tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-  names = ['accepted','internal_re1','adjasent_re1','circular_re1', 'overhang_re1',
+  names = ['accepted','internal_re1','adjacent_re1','circular_re1', 'overhang_re1',
            'too_close','too_small','too_big',
            'internal_re2','no_end_re2', 'low_mappability', 'unknown_contig']
   colors = ['#80C0FF','#FFFF00','#FF0000','#FFC000','#FF0080',
@@ -1704,10 +1706,10 @@ def write_report(report_file, frag_sizes, general_stats, clip_stats1, clip_stats
   
   hist, edges = np.histogram(frag_sizes, bins=50, range=(0, 1100))
   data_set = [(int(edges[i]), int(val)) for i, val in enumerate(hist)]
-  svg_doc.graph(x1, y+chart_height, table_width/2, th-chart_height, [data_set], 'Size', 'Count',
+  svg_doc.graph(x1, y+chart_height, table_width/2, th-chart_height-40, [data_set], 'Size', 'Count',
                 names=None, colors=None,  graph_type='line',
                 symbols=None, line_widths=None, symbol_sizes=None,
-                legend=False, title=None, plot_offset=(80, 0))
+                legend=False, title=None, plot_offset=(80, 20))
   y += th
   
   y += head_height
@@ -1964,8 +1966,10 @@ def nuc_process(fastq_paths, genome_index, re1, re2=None, sizes=(300,800), min_r
     
   if report_file:
     report_file = check_file_extension(report_file, '.svg')
+    contact_map_file = os.path.splitext(report_file)[0] + '_contact_map.svg'
   else:
     report_file = file_root + '_report.svg'
+    contact_map_file =  file_root + '_contact_map.svg'
 
   # Check for no upper fragment size limit
   if len(sizes) == 1:
@@ -2153,6 +2157,8 @@ def nuc_process(fastq_paths, genome_index, re1, re2=None, sizes=(300,800), min_r
   write_report(report_file, frag_sizes, general_stats, clip_stats1, clip_stats2, sam_stats1, sam_stats2,
                pair_stats, filter_stats, redundancy_stats, promiscuity_stats, final_stats)
 
+  nuc_contact_map(out_file, contact_map_file)
+
   if verbose:
     info('Nuc Process all done.')
 
@@ -2184,7 +2190,7 @@ if __name__ == '__main__':
                          help='Primary restriction enzyme (for ligation junctions). Default: MboI. ' + avail_re)
 
   arg_parse.add_argument('-re2', choices=res, metavar='ENZYME',
-                         help='Secondary restruction enzyme (if used). ' + avail_re)
+                         help='Secondary restriction enzyme (if used). ' + avail_re)
 
   arg_parse.add_argument('-s', default='150-1500', metavar='SIZE_RANGE',
                          help='Allowed range of sequenced molecule sizes, e.g. "150-1000", "100,800" or "200" (no maximum)')
@@ -2193,10 +2199,10 @@ if __name__ == '__main__':
                          type=int, help='Number of CPU cores to use in parallel')
 
   arg_parse.add_argument('-r', default=2, metavar='COUNT',
-                         type=int, help='Mimimum number of sequencing repeats required to support a contact')
+                         type=int, help='Minimum number of sequencing repeats required to support a contact')
 
   arg_parse.add_argument('-o', metavar='NCC_FILE',
-                         help='Optional output name for NCC format chromsome contact file')
+                         help='Optional output name for NCC format chromosome contact file')
 
   arg_parse.add_argument('-oa', metavar='NCC_FILE',
                          help='Optional output name for ambiguous contact NCC file')
@@ -2208,7 +2214,7 @@ if __name__ == '__main__':
                          help='Path to bowtie2 (read aligner) executable (will be searched for if not specified)')
 
   arg_parse.add_argument('-q', metavar='SCHEME',
-                         help='Use a specific FASTQ quility scheme (normally not set and deduced automatically). ' + avail_quals)
+                         help='Use a specific FASTQ quality scheme (normally not set and deduced automatically). ' + avail_quals)
 
   arg_parse.add_argument('-m', default=False, action='store_true',
                          help='Force a re-mapping of genome restriction enzyme sites (otherwise cached values will be used if present)')
@@ -2220,7 +2226,7 @@ if __name__ == '__main__':
                          help='Force a re-indexing of the genome (given appropriate FASTA files)')
 
   arg_parse.add_argument('-f', nargs='+', metavar='FASTA_FILES',
-                         help='Specify genome FASTA files for index bilding (accepts wildcards)')
+                         help='Specify genome FASTA files for index building (accepts wildcards)')
 
   arg_parse.add_argument('-a', default=False, action='store_true',
                          help='Whether to report ambiguously mapped contacts')
@@ -2241,7 +2247,7 @@ if __name__ == '__main__':
                          help='Display verbose messages to report progress')    
  
   arg_parse.add_argument('-u', default=False, action='store_true',
-                         help='Whether to only accept uniquely mapping genome positions and not attempt to resolve certain classes of ambigous mapping.')
+                         help='Whether to only accept uniquely mapping genome positions and not attempt to resolve certain classes of ambiguous mapping.')
   
   args = vars(arg_parse.parse_args())
   
@@ -2276,7 +2282,7 @@ if __name__ == '__main__':
               ambig, unique_map, out_file, ambig_file, report_file, align_exe,
               qual, g_fastas, is_pop_data, remap, reindex, keep_files,
               lig_junc, zip_files, sam_format, verbose)
-
+    
   # Required:
   #  - hist on-the-fly clipped read and frag size length distributions
   #  - Output CSV report file option
