@@ -3,7 +3,6 @@ import numpy as np
 
 from collections import defaultdict
 from subprocess import Popen, PIPE, call
-from matplotlib import pyplot as plt
 from NucSvg import SvgDocument
 from NucContactMap import nuc_contact_map
 

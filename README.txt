@@ -6,10 +6,10 @@ of paired read data. This software takes paired FASTQ sequence read files
 (representing Hi-C data for only ONE cell), a reference genome sequence and
 knowledge of experimental parameters (restriction enzyme type and the range of
 size of DNA fragments sequenced in the library) to create processed, single-cell
-Hi-C contact files. By default, the output is generated in Nuc Chromatin
-Contact (NCC) format, which is a simple text based format described below. A
-processing report document will also be generated for each run; in SVG format
-that can be viewed in most web browsers.
+Hi-C contact files. By default, the output is generated in Nuc Chromatin Contact
+(NCC) format, which is a simple text based format described below. A processing
+report document and a contact map will also be generated for each run; in SVG
+format that can be viewed in most web browsers.
 
 To run NucProcess issue the 'nuc_process' command with the command line options
 described below. The options -i (input FASTQ files) and -g (genome reference)
@@ -18,8 +18,9 @@ Default is MboI), -o (root name of output files) and -re2 (secondary restriction
 enzyme in double-digest experiments).
 
 NucProcess also includes the 'nuc_contact_map' program which takes the contact
-data from 'nuc_process' (NCC format) to make all-chromosome contact map
-graphics in SVG format. 
+data from NCC format files to make all-chromosome contact map graphics
+in SVG format. This is automatically run on the main output of NucProcess, but
+can be run as required on any NCC format file.
 
 IMPORTANT: If the files for the genome index and the corresponding restriction
 enzyme (RE) cut location files have not been created they will be generated
