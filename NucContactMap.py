@@ -1,6 +1,7 @@
 import numpy as np
 import os, sys
 
+from scipy.stats import norm
 from math import ceil
 from NucSvg import SvgDocument
 
@@ -77,6 +78,90 @@ def _color_func_black(matrix, color):
   return color_matrix
 
 
+def _get_trans_dev(trans_counts):
+
+  cp = float(len(trans_counts))
+  base = np.arange(0.0, 1.0, 1.0/cp)
+
+  vals = np.array(trans_counts.values(), float)
+  vals -= vals.min()
+  vals /= vals.sum() or 1.0
+  vals = vals[vals.argsort()]
+  vals = vals.cumsum()
+  
+  deltas = base - vals
+  dev = 2.0 * deltas.sum()/cp
+  
+  n1 = norm.pdf(dev, 0.81, 0.025)
+  n2 = norm.pdf(dev, 0.70, 0.020)
+  n4 = norm.pdf(dev, 0.55, 0.015)
+  
+  return dev, n1, n2, n4
+  
+
+def _get_num_isolated(positions, threshold=500000, pos_err=100):
+                  
+  num_isolated = 0
+  pos = list(enumerate(positions))
+  found = [0] * len(positions)
+  
+  for i, (pA, pB) in pos:
+    if found[i]:
+      continue
+    
+    close = 0
+    for j, (pC, pD) in pos:
+      if j == i:
+        continue
+
+      if (pos_err < abs(pC-pA) < threshold) and (pos_err < abs(pD-pB) < threshold):
+        close = 1
+        found[j] = 1
+ 
+      elif (pos_err < abs(pD-pA) < threshold) and (pos_err < abs(pC-pB) < threshold):
+        close = 1
+        found[j] = 1
+    
+    if not close:
+      num_isolated += 1
+  
+  return num_isolated
+
+
+def _get_mito_fraction(contacts, min_sep=1e2, sep_range=(10**6.5, 10**7.5)):
+  
+  a, b = sep_range
+  diag_seps = []
+  in_range = 0
+  total = 0
+  
+  for chr_pair in contacts:
+    chr_a, chr_b = chr_pair
+    
+    if chr_a != chr_b:
+      continue
+    
+    points = np.array(contacts[chr_pair])
+    d_seps = np.diff(points, axis=1)
+    d_seps = d_seps[(d_seps > min_sep).nonzero()]
+    
+    n = len(d_seps)
+    smaller = len((d_seps <= a).nonzero()[0])
+    larger  = len((d_seps >= b).nonzero()[0])
+    
+    total += n
+    in_range += n-(smaller+larger)
+  
+  frac  = in_range/float(total)
+  
+  if frac > 0.4:
+    score = 100.0
+  else:
+    score = 100.0 * np.exp((frac-0.4)**2/-0.01)
+        
+  return frac, score
+  
+  
 def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg=False, color=None, font=None, font_size=12, line_width=1):
     
   bin_size = int(bin_size * 1e6)
@@ -122,8 +207,18 @@ def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg
       else:
         contact_list = []
         contacts[chr_pair] = contact_list
+      
+      if strand_a > 0:
+        p_a = f_end_a
+      else:
+        p_a = f_start_a
+      
+      if strand_b > 0:
+        p_b = f_end_b
+      else:
+        p_b = f_start_b
         
-      contact_list.append((start_a, end_a, start_b, end_b))
+      contact_list.append((p_a, p_b))
 
   if not chromo_limits:
     fatal('No chromosome contact data read')
@@ -162,11 +257,18 @@ def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg
     grid.append(n)# At chromosome edge
   
   grid.pop() # Don't need last edge
+  
   # Fill contact map matrix
   data = np.zeros((n, n), float)
   
   if svg_path:
     info('Contact map size %d x %d' % (n, n))
+  
+  trans_counts = {}
+  n_cont  = 0
+  n_cis   = 0
+  n_trans = 0
+  n_isol  = 0
   
   for i, chr_1 in enumerate(chromos):
     for chr_2 in chromos[i:]:
@@ -179,26 +281,44 @@ def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg
       contact_list = contacts.get((chr_a, chr_b))
       
       if contact_list is None: # Nothing for this pair: common for single-cell Hi-C
+        if chr_a != chr_b:
+          trans_counts[(chr_a, chr_b)] = 0.0
+          
         continue
+      
+      ni = _get_num_isolated(contact_list)
       
       s_a, n_a = chromo_offsets[chr_a]
       s_b, n_b = chromo_offsets[chr_b]
       
-      for start_a, end_a, start_b, end_b in contact_list:
-        a1 = n_a + int((start_a-s_a)/bin_size)
-        a2 = n_a + int((end_a-s_a)/bin_size)
-        b1 = n_b + int((start_b-s_b)/bin_size)
-        b2 = n_b + int((end_b-s_b)/bin_size)
+      for p_a, p_b in contact_list:
+        a = n_a + int((p_a-s_a)/bin_size)
+        b = n_b + int((p_b-s_b)/bin_size)
         
-        fa = 1.0 / (a2 - a1 + 1.0)
-        fb = 1.0 / (b2 - b1 + 1.0)
-        
-        for a in range(a1, a2+1):
-          for b in range(b1, b2+1):
-            f =  fa * fb
-            data[a, b] += f
-            data[b, a] += f
+        data[a, b] += 1.0
+        data[b, a] += 1.0      
+      
+      nc = len(contact_list)
+      n_cont += nc
+      n_isol += ni
+      
+      if chr_a == chr_b:
+        n_cis += nc
+      else:
+        s1, e1 = chromo_limits[chr_a]
+        s2, e2 = chromo_limits[chr_b]
+        trans_counts[(chr_a, chr_b)] = (nc - ni)/float((e1-s1) * (e2-s2))
+        n_trans += nc  
   
+  isol_frac = 100.0 * n_isol / float(n_cont or 1)
+  
+  dev, pn1, pn2, pn4 = _get_trans_dev(trans_counts)
+  
+  mito_frac, mito_score = _get_mito_fraction(contacts)
+  
+  stats_text = 'Contacts:{:,d} cis:{:,d} trans:{:,d} ; isolated:{:.2f}% ; ploidy scores N:{:.2f} 2N:{:.2f} 4N:{:.2f} ; mito score:{:.2f}'
+  stats_text = stats_text.format(n_cont, n_cis, n_trans, isol_frac, pn1, pn2, pn4, mito_score)
+         
   data = np.log(data+1.0)
   
   chromo_labels = []
@@ -209,7 +329,7 @@ def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg
       chromo = chromo[3:]
     
     chromo_labels.append((pos, chromo))
-
+  
   
   # Make SVG  
   offset = int(0.1 * n)  
@@ -245,6 +365,9 @@ def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg
                          value_range=None, scale_func=None)
   
   svg_doc.text(os.path.basename(ncc_path), (offset, offset/2))
+
+
+  svg_doc.text(stats_text, (offset, offset-8), size=12)
 
   if svg_path == '-':
     print svg_doc.svg()
