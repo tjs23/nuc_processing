@@ -6,7 +6,7 @@ from math import ceil
 from NucSvg import SvgDocument
 
 PROG_NAME = 'nuc_contact_map'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 DESCRIPTION = 'Chromatin contact (NCC format) Hi-C contact map display module for Nuc3D and NucTools'
 
 # TBC:
@@ -92,11 +92,24 @@ def _get_trans_dev(trans_counts):
   deltas = base - vals
   dev = 2.0 * deltas.sum()/cp
   
-  n1 = norm.pdf(dev, 0.81, 0.025)
-  n2 = norm.pdf(dev, 0.70, 0.020)
-  n4 = norm.pdf(dev, 0.55, 0.015)
+  if dev < 0.50:
+    score_cat = '>4N'
+  elif dev < 0.6:
+    score_cat = '4N'
+  elif dev < 0.74:
+    score_cat = '2N'
+  elif dev < 0.76:
+    score_cat = '1/2N'
+  elif dev < 0.90:
+    score_cat = '1N'
+  else:
+    score_cat = '?'
   
-  return dev, n1, n2, n4
+  #n1 = norm.pdf(dev, 0.81, 0.025)
+  #n2 = norm.pdf(dev, 0.70, 0.020)
+  #n4 = norm.pdf(dev, 0.55, 0.015)
+  
+  return dev, score_cat
   
 
 def _get_num_isolated(positions, threshold=500000, pos_err=100):
@@ -154,19 +167,30 @@ def _get_mito_fraction(contacts, min_sep=1e2, sep_range=(10**6.5, 10**7.5)):
   
   frac  = in_range/float(total)
   
-  if frac > 0.4:
-    score = 100.0
+  if frac < 0.30:
+    score_cat = 'Non-M'
+  elif frac < 0.40:
+    score_cat = 'M'
   else:
-    score = 100.0 * np.exp((frac-0.4)**2/-0.01)
-        
-  return frac, score
+    score_cat = 'Strong M'
+         
+  return frac, score_cat
   
   
-def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg=False, color=None, font=None, font_size=12, line_width=1):
+def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5, black_bg=False, color=None, font=None, font_size=12, line_width=1):
     
   bin_size = int(bin_size * 1e6)
   chromo_limits = {}  
   
+  if svg_tag == '-':
+    svg_path = '-'
+  
+  else:
+    svg_path = '{}{}.svg'.format(os.path.splitext(ncc_path)[0], svg_tag)  
+
+  if svg_path and svg_path != '-':
+    info('Making contact map for {}'.format(ncc_path))
+    
   # Load NCC data
   contacts = {}
   with open(ncc_path) as in_file_obj:
@@ -261,7 +285,7 @@ def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg
   # Fill contact map matrix
   data = np.zeros((n, n), float)
   
-  if svg_path:
+  if svg_path and svg_path != '-':
     info('Contact map size %d x %d' % (n, n))
   
   trans_counts = {}
@@ -312,12 +336,12 @@ def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg
   
   isol_frac = 100.0 * n_isol / float(n_cont or 1)
   
-  dev, pn1, pn2, pn4 = _get_trans_dev(trans_counts)
+  trans_dev, ploidy = _get_trans_dev(trans_counts)
   
-  mito_frac, mito_score = _get_mito_fraction(contacts)
+  mito_frac, mito_cat = _get_mito_fraction(contacts)
   
-  stats_text = 'Contacts:{:,d} cis:{:,d} trans:{:,d} ; isolated:{:.2f}% ; ploidy scores N:{:.2f} 2N:{:.2f} 4N:{:.2f} ; mito score:{:.2f}'
-  stats_text = stats_text.format(n_cont, n_cis, n_trans, isol_frac, pn1, pn2, pn4, mito_score)
+  stats_text = 'Contacts:{:,d} cis:{:,d} trans:{:,d} ; isolated:{:.2f}% ; ploidy score:{:.2f} ({}) ; mito score:{:.2f} ({})'
+  stats_text = stats_text.format(n_cont, n_cis, n_trans, isol_frac, trans_dev, ploidy, mito_frac, mito_cat)
          
   data = np.log(data+1.0)
   
@@ -370,13 +394,13 @@ def nuc_contact_map(ncc_path, svg_path=None, svg_width=700, bin_size=5, black_bg
   svg_doc.text(stats_text, (offset, offset-8), size=12)
 
   if svg_path == '-':
-    print svg_doc.svg()
+    print(svg_doc.svg(svg_width, svg_width))
   
   elif svg_path:
     svg_doc.write_file(svg_path, svg_width, svg_width)
 
   else:
-    return svg_doc.svg()
+    return svg_doc.svg(svg_width, svg_width)
 
 
 if __name__ == '__main__':
@@ -388,11 +412,11 @@ if __name__ == '__main__':
   arg_parse = ArgumentParser(prog=PROG_NAME, description=DESCRIPTION,
                              epilog=epilog, prefix_chars='-', add_help=True)
 
-  arg_parse.add_argument('-i', metavar='NCC_FILE',
-                         help='Input NCC format chromatin contact file')
+  arg_parse.add_argument('-i', metavar='NCC_FILE', nargs='+',
+                         help='Input NCC format chromatin contact file(s)')
 
-  arg_parse.add_argument('-o', metavar='SVG_FILE',
-                         help='Optional output name for SVG format contact map output')
+  arg_parse.add_argument('-o', metavar='SVG_FILE_TAG', default='_contact_map',
+                         help='Optional name tag to put at end of SVG format contact map file. Use "-" to print SVG to stdout rather than make a file. Default: "_contact_map"')
 
   arg_parse.add_argument('-w', default=700, metavar='SVG_WIDTH',
                          type=int, help='SVG document width')
@@ -408,14 +432,14 @@ if __name__ == '__main__':
 
   args = vars(arg_parse.parse_args())
   
-  ncc_path  = args['i']
-  svg_path  = args['o']
+  ncc_paths = args['i']
+  svg_tag   = args['o']
   svg_width = args['w']
   bin_size  = args['s']
   black_bg  = args['b']
   color     = args['c']
   
-  if not ncc_path:
+  if not ncc_paths:
     import sys
     arg_parse.print_help()
     sys.exit(1)
@@ -423,8 +447,9 @@ if __name__ == '__main__':
   if color and isinstance(color, list):
     color = color[0]
   
-  if not svg_path:
-    svg_path = os.path.splitext(ncc_path)[0] + '_contact_map.svg'
-    
-  nuc_contact_map(ncc_path, svg_path, svg_width, bin_size, black_bg, color)
+  for ncc_path in ncc_paths:
+    if not os.path.exists(ncc_path):
+      fatal('NCC file could not be found at "{}"'.format(ncc_path))
+  
+    nuc_contact_map(ncc_path, svg_tag, svg_width, bin_size, black_bg, color)
 
