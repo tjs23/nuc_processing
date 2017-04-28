@@ -2160,10 +2160,8 @@ def nuc_process(fastq_paths, genome_index, re1, re2=None, sizes=(300,800), min_r
     
   if report_file:
     report_file = check_file_extension(report_file, '.svg')
-    contact_map_file = os.path.splitext(report_file)[0] + '_contact_map.svg'
   else:
     report_file = file_root + '_report.svg'
-    contact_map_file =  file_root + '_contact_map.svg'
   
   global LOG_FILE_PATH
   global STAT_FILE_PATH
@@ -2337,7 +2335,7 @@ def nuc_process(fastq_paths, genome_index, re1, re2=None, sizes=(300,800), min_r
   
   write_report(report_file)
 
-  nuc_contact_map(out_file, contact_map_file)
+  nuc_contact_map(out_file, '_contact_map')
 
   info('Nuc Process all done.')
     

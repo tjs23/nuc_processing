@@ -233,7 +233,7 @@ NucTools
 
 optional arguments:
   -h, --help    show this help message and exit
-  -i NCC_FILEA  Input NCC format chromatin contact file(s). Wildcards accepted
+  -i NCC_FILES  Input NCC format chromatin contact file(s). Wildcards accepted
   -o SVG_FILE   Optional name tag to put at end of SVG format contact
                 map file. Use "-" to print SVG to stdout rather than
                 make a file. Default: "_contact_map"
