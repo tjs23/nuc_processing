@@ -576,8 +576,9 @@ def filter_pairs(pair_ncc_file, re1_file, re2_file=None, sizes=(100,2000), too_c
     
     # Find which RE fragments the read positions wre within
     # index of frag with pos immediately less than end
-    re1_a_idx = np.searchsorted(re1_end_dict[chr_a], [start_a])[0]
-    re1_b_idx = np.searchsorted(re1_end_dict[chr_b], [start_b])[0]     
+    # Note: modulo is due to circular chromosomes
+    re1_a_idx = np.searchsorted(re1_end_dict[chr_a], [start_a])[0] % len(re1_end_dict[chr_a])
+    re1_b_idx = np.searchsorted(re1_end_dict[chr_b], [start_b])[0] % len(re1_end_dict[chr_b])
     
     re1_a_start, re1_a_end, mappability_a = re1_frag_dict[chr_a][re1_a_idx] 
     re1_b_start, re1_b_end, mappability_b = re1_frag_dict[chr_b][re1_b_idx]
@@ -618,17 +619,18 @@ def filter_pairs(pair_ncc_file, re1_file, re2_file=None, sizes=(100,2000), too_c
     
     if re2_file:
       # Check Read is at the end of different RE2 fragments
-      re2_a_idx = np.searchsorted(re2_end_dict[chr_a], [start_a])[0]
-      re2_b_idx = np.searchsorted(re2_end_dict[chr_b], [start_b])[0]     
+      # Note: modulo is due to circular chromosomes
+      re2_a_idx = np.searchsorted(re2_end_dict[chr_a], [start_a])[0] % len(re2_end_dict[chr_a])
+      re2_b_idx = np.searchsorted(re2_end_dict[chr_b], [start_b])[0] % len(re2_end_dict[chr_b])
  
       # Internal RE2 not necessarily a problem if reads are in different RE1 fragements, e.g. potential ligation junction within
       if re2_a_idx == re2_b_idx and chr_a == chr_b and re1_a_idx == re1_b_idx:
         count_write('internal_re2', line)
         continue
  
-      re2_a_start, re2_a_end, mappability_re2_a = re2_frag_dict[chr_a][re2_a_idx]
+      re2_a_start, re2_a_end, mappability_re2_a = re2_frag_dict[chr_a][re2_a_idx] 
       re2_b_start, re2_b_end, mappability_re2_b = re2_frag_dict[chr_b][re2_b_idx]
-       
+        
       if (mappability_re2_a < min_mappability) or (mappability_re2_b < min_mappability):
         count_write('low_mappability', line)
         continue
@@ -865,8 +867,6 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
   paired_ncc_file_name_temp = paired_ncc_file_name + TEMP_EXT
   ambig_ncc_file_name_temp = ambig_ncc_file_name + TEMP_EXT
   
-  
-  
   if INTERRUPTED and os.path.exists(paired_ncc_file_name) and os.path.exists(ambig_ncc_file_name) \
       and not os.path.exists(paired_ncc_file_name_temp) and not os.path.exists(ambig_ncc_file_name_temp):
     return paired_ncc_file_name, ambig_ncc_file_name
@@ -1066,10 +1066,10 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, is_second=Fal
   
   cmd_args = [align_exe]
     
-  cmd_args += [#'--very-sensitive',
-               '-D', '20', '-R', '3', '-N', '0',  '-L', str(MIN_READ_LEN),  '-i', 'S,1,0.50',
+  cmd_args += ['-D', '20', '-R', '3', '-N', '0',  '-L', str(MIN_READ_LEN),  '-i', 'S,1,0.50',
                '-x', genome_index,
                '-k', '2',
+               #'-a', 
                '--reorder',
                #'--un', fastq_file[:-6] + 'unaligned.fastq',  
                '-p', str(num_cpu),
@@ -1334,25 +1334,29 @@ def check_re_frag_file(genome_index, re_name, genome_fastas, align_exe, num_cpu,
   
   out_file_obj = open(re_site_file, 'w')
   
-  head = 'Chromo\tContig\tFrag_Start\tFrag_End\tMappability\n'
-  msg = 'Calculating %s fragment locations and mappability for chromosome %s contig %s'
+  head = 'Source\tContig\tFrag_Start\tFrag_End\tMappability\n'
+  msg = 'Calculating %s fragment locations and mappability for %s contig %s'
   out_file_obj.write(head)
   
   for fasta_file in genome_fastas:
     file_obj = open(fasta_file)
     
-    #chromo = None
     contig = None
-    chromo = os.path.splitext(fasta_file)[0].split('_')[-1]
+    
+    if (len(genome_fastas) == 1) and ('_chr' not in os.path.basename(fasta_file)):
+      source = os.splitext(os.path.basename(fasta_file))[0]
+    else:
+      source = os.path.splitext(fasta_file)[0].split('_')[-1]
+  
     seq = ''
     
     for fasta_line in file_obj:
       if fasta_line[0] == '>':
-        if chromo and seq: # add previous
-          info(msg % (re_name, chromo, contig))
+        if source and seq: # add previous
+          info(msg % (re_name, source, contig))
         
           for start, end, mappability in get_chromo_re_fragments(seq, site, pos, genome_index, align_exe, num_cpu):
-            frag_line = '%s\t%s\t%d\t%d\t%d\n' % (chromo, contig, start, end, mappability)
+            frag_line = '%s\t%s\t%d\t%d\t%d\n' % (source, contig, start, end, mappability)
             out_file_obj.write(frag_line)
             
         contig = fasta_line[1:].split()[0]
@@ -1363,11 +1367,11 @@ def check_re_frag_file(genome_index, re_name, genome_fastas, align_exe, num_cpu,
     
     file_obj.close()
     
-    if chromo and seq:
-      info(msg % (re_name, chromo, contig))
+    if source and seq:
+      info(msg % (re_name, source, contig))
         
       for start, end, mappability in get_chromo_re_fragments(seq, site, pos, genome_index, align_exe, num_cpu):
-        frag_line = '%s\t%s\t%d\t%d\t%d\n' % (chromo, contig, start, end, mappability)
+        frag_line = '%s\t%s\t%d\t%d\t%d\n' % (source, contig, start, end, mappability)
         out_file_obj.write(frag_line)
  
        
@@ -1387,8 +1391,8 @@ def read_re_frag_file(file_path):
     data_dict = {}
  
     for key in in_data_dict:
-      chromo, contig = key.split('/')
-      chromo_contigs[chromo].add(contig)
+      source, contig = key.split('/')
+      chromo_contigs[source].add(contig)
       frag_dict[contig] = in_data_dict[key]
  
   else:
@@ -1397,10 +1401,11 @@ def read_re_frag_file(file_path):
   
     prev_contig = None
     for line in file_obj:
-      chromo, contig, start, end, mappability = line.split()
- 
+      source, contig, start, end, mappability = line.split()
+      source = source.split('/')[-1]
+      
       if contig != prev_contig:
-        chromo_contigs[chromo].add(contig)
+        chromo_contigs[source].add(contig)
         frag_dict[contig] = []
         append = frag_dict[contig].append
  
@@ -1410,10 +1415,10 @@ def read_re_frag_file(file_path):
     file_obj.close()
    
     kw_args = {}
-    for chromo in chromo_contigs:
-      for contig in chromo_contigs[chromo]:
+    for source in chromo_contigs:
+      for contig in chromo_contigs[source]:
         frag_dict[contig] = np.array(frag_dict[contig])
-        key = '%s/%s' % (chromo, contig)
+        key = '%s/%s' % (source, contig)
         kw_args[key] = frag_dict[contig]
     
     try:
@@ -1426,16 +1431,16 @@ def read_re_frag_file(file_path):
     end_dict[contig] = frag_dict[contig][:,1]
   
   chromo_name_dict = {} # Safely mappable contig names
-  for chromo in chromo_contigs:
-    contigs = chromo_contigs[chromo]
+  for source in chromo_contigs:
+    contigs = chromo_contigs[source]
     
     if len(contigs) == 1:
       contig = contigs.pop()
-      chromo_name_dict[contig] = chromo
-      chromo_name_dict[chromo] = chromo
+      chromo_name_dict[contig] = source
+      chromo_name_dict[source] = source
       
-      frag_dict[chromo] = frag_dict[contig]
-      end_dict[chromo] = end_dict[contig]    
+      frag_dict[source] = frag_dict[contig]
+      end_dict[source] = end_dict[contig]    
   
   return frag_dict, end_dict, chromo_name_dict
   
@@ -1602,13 +1607,13 @@ def check_regular_file(file_path):
   return True, msg
   
 
-def _write_log_lines(lines):
+def _write_log_lines(lines, verbose=VERBOSE):
 
   if LOG_FILE_PATH:
     with open(LOG_FILE_PATH, 'a') as file_obj:
       file_obj.write('\n'.join(lines) + '\n')
   
-  if VERBOSE:
+  if verbose:
     for line in lines:
       print(line)
   
@@ -1630,7 +1635,7 @@ def fatal(msg, prefix='%s FAILURE' % PROG_NAME):
   lines = ['%8s : %s' % (prefix, msg),
            'Use %s with -h to display command line options' % PROG_NAME]
 
-  _write_log_lines(lines)
+  _write_log_lines(lines, verbose=True)
   sys.exit(0)
 
 
