@@ -413,7 +413,7 @@ if __name__ == '__main__':
                              epilog=epilog, prefix_chars='-', add_help=True)
 
   arg_parse.add_argument('-i', metavar='NCC_FILE', nargs='+',
-                         help='Input NCC format chromatin contact file(s)')
+                         help='Input NCC format chromatin contact file(s). Wildcards accepted')
 
   arg_parse.add_argument('-o', metavar='SVG_FILE_TAG', default='_contact_map',
                          help='Optional name tag to put at end of SVG format contact map file. Use "-" to print SVG to stdout rather than make a file. Default: "_contact_map"')

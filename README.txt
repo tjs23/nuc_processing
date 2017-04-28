@@ -225,16 +225,18 @@ definitions.
 Command line options for nuc_contact_map
 ----------------------------------------
 
-usage: nuc_contact_map [-h] [-i NCC_FILE] [-o SVG_FILE] [-w SVG_WIDTH]
-                       [-s BIN_SIZE] [-b] [-c RGB_COLOR]
+usage: nuc_contact_map [-h] [-i NCC_FILE [NCC_FILE ...]] [-o SVG_FILE_TAG]
+                       [-w SVG_WIDTH] [-s BIN_SIZE] [-b] [-c RGB_COLOR]
 
 Chromatin contact (NCC format) Hi-C contact map display module for Nuc3D and
 NucTools
 
 optional arguments:
   -h, --help    show this help message and exit
-  -i NCC_FILE   Input NCC format chromatin contact file
-  -o SVG_FILE   Optional output name for SVG format contact map output
+  -i NCC_FILEA  Input NCC format chromatin contact file(s). Wildcards accepted
+  -o SVG_FILE   Optional name tag to put at end of SVG format contact
+                map file. Use "-" to print SVG to stdout rather than
+                make a file. Default: "_contact_map"
   -w SVG_WIDTH  SVG document width
   -s BIN_SIZE   Sequence region size represented by each small square (the
                 resolution) in megabases. Default is 5 kb
