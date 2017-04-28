@@ -29,7 +29,7 @@ class SvgDocument(object):
   
   def svg(self, width, height):
     
-    return self._svg_head(width, height) + self._svg_lines + self._svg_tail()
+    return ''.join(self._svg_head(width, height) + self._svg_lines + self._svg_tail())
     
   
   def write_file(self, file_name, width, height):
@@ -47,7 +47,7 @@ class SvgDocument(object):
     head1 = '<?xml version="1.0"?>\n'
     head2 = '<svg height="%d" width="%d" image-rendering="optimizeSpeed" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.2" baseProfile="tiny">\n' % (height,width)
     
-    return head1, head2
+    return [head1, head2]
     
 
   def _svg_tail(self):
