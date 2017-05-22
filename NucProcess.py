@@ -1391,7 +1391,7 @@ def read_re_frag_file(file_path):
     data_dict = {}
  
     for key in in_data_dict:
-      source, contig = key.split('/')
+      source, contig = key.split()
       chromo_contigs[source].add(contig)
       frag_dict[contig] = in_data_dict[key]
  
@@ -1402,7 +1402,7 @@ def read_re_frag_file(file_path):
     prev_contig = None
     for line in file_obj:
       source, contig, start, end, mappability = line.split()
-      source = source.split('/')[-1]
+      source = source.split()[-1]
       
       if contig != prev_contig:
         chromo_contigs[source].add(contig)
@@ -1418,7 +1418,7 @@ def read_re_frag_file(file_path):
     for source in chromo_contigs:
       for contig in chromo_contigs[source]:
         frag_dict[contig] = np.array(frag_dict[contig])
-        key = '%s/%s' % (source, contig)
+        key = '%s %s' % (source, contig)
         kw_args[key] = frag_dict[contig]
     
     try:
