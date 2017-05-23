@@ -81,7 +81,6 @@ def _color_func_black(matrix, color):
 def _get_trans_dev(trans_counts):
 
   cp = float(len(trans_counts))
-  base = np.arange(0.0, 1.0, 1.0/cp)
 
   vals = np.array(trans_counts.values(), float)
   vals -= vals.min()
@@ -89,6 +88,7 @@ def _get_trans_dev(trans_counts):
   vals = vals[vals.argsort()]
   vals = vals.cumsum()
   
+  base = np.arange(0, len(vals))/cp
   deltas = base - vals
   dev = 2.0 * deltas.sum()/cp
   

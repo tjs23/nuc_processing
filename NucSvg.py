@@ -308,7 +308,7 @@ class SvgDocument(object):
                      line_color='#000000', bg_color='#FFFFFF', grid_color='#808080',
                      pos_color='#0080FF', neg_color='#FF4000', color_func=None,
                      font=None, font_size=16, line_width=1, plot_offset=(50, 50),
-                     value_range=None, scale_func=None):
+                     value_range=None, scale_func=None, rotate_large_labels=True):
     
     pad = font_size + font_size / 4
     
@@ -381,8 +381,12 @@ class SvgDocument(object):
         x = min(float(m), max(0.0, x))
         
         x = x1 + +x_box/2.0 + x * x_box
-    
-        self.text(t, (x, y3), anchor='middle', size=font_size-2, bold=False, font=font, color=line_color, angle=None, vert_align=None)
+        
+        if rotate_large_labels and (len(t) > 4):
+          self.text(t, (x, y2), anchor='start', size=font_size/2, bold=False, font=font, color=line_color, angle=90, vert_align=None)
+        
+        else:
+          self.text(t, (x, y3), anchor='middle', size=font_size-2, bold=False, font=font, color=line_color, angle=None, vert_align=None)
       
       y3 += pad
        
@@ -397,8 +401,12 @@ class SvgDocument(object):
         
         y = min(float(n), max(0.0, y))
         y = y1 + y_box/2.0 + y * y_box
-    
-        self.text(t, (x3, y), anchor='middle', size=font_size-2, bold=False, font=font, color=line_color, angle=270, vert_align=None)
+        
+        if rotate_large_labels and (len(t) > 4):
+          self.text(t, (x3, y), anchor='end', size=font_size/2, bold=False, font=font, color=line_color, angle=None, vert_align=None)
+        
+        else:
+          self.text(t, (x3, y), anchor='middle', size=font_size-2, bold=False, font=font, color=line_color, angle=270, vert_align=None)
       
       x3 -= pad
     
