@@ -17,10 +17,14 @@ are mandatory, though its is usual to also use -re1 (primary restriction enzyme.
 Default is MboI), -o (root name of output files) and -re2 (secondary restriction
 enzyme in double-digest experiments).
 
-NucProcess also includes the 'nuc_contact_map' program which takes the contact
-data from NCC format files to make all-chromosome contact map graphics
-in SVG format. This is automatically run on the main output of NucProcess, but
-can be run as required on any NCC format file.
+The 'nuc_contact_map' command takes the contact data from NCC format files to
+make all-chromosome contact map graphics in SVG format. This is automatically
+run on the main output of NucProcess, but can be run as required on any NCC
+format file.
+
+The 'nuc_contact_probability' command takes the contact data from one or more
+NCC format files to create log plots of contact probability versus sequence
+separation for intra chromosomal contacts.
 
 IMPORTANT: If the files for the genome index and the corresponding restriction
 enzyme (RE) cut location files have not been created they will be generated
@@ -248,3 +252,22 @@ optional arguments:
 For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk
 
 
+Command line options for nuc_contact_probability
+------------------------------------------------
+
+usage: nuc_contact_probability [-h] [-i NCC_FILE [NCC_FILE ...]] [-o SVG_FILE]
+                               [-w SVG_WIDTH] [-s KB_BIN_SIZE]
+
+Chromatin contact (NCC format) probability vs sequence separation graph module
+for Nuc3D and NucTools
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i NCC_FILE [NCC_FILE ...]
+                        Input NCC format chromatin contact file(s). Wildcards
+                        accepted
+  -o SVG_FILE           Output SVF format file. Use "-" to print SVG to stdout
+                        rather than make a file.
+  -w SVG_WIDTH          SVG document width
+  -s KB_BIN_SIZE        Sequence region size in kilobases for calculation of
+                        contact probabilities. Default is 100 (kb)
