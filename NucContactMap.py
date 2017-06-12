@@ -418,10 +418,10 @@ if __name__ == '__main__':
   arg_parse.add_argument('-o', metavar='SVG_FILE_TAG', default='_contact_map',
                          help='Optional name tag to put at end of SVG format contact map file. Use "-" to print SVG to stdout rather than make a file. Default: "_contact_map"')
 
-  arg_parse.add_argument('-w', default=700, metavar='SVG_WIDTH',
-                         type=int, help='SVG document width')
+  arg_parse.add_argument('-w', default=700, metavar='SVG_WIDTH', type=int,
+                         help='SVG document width')
 
-  arg_parse.add_argument('-s', default=5, metavar='BIN_SIZE',
+  arg_parse.add_argument('-s', default=5, metavar='BIN_SIZE', type=int,
                          help='Sequence region size represented by each small square (the resolution) in megabases. Default is 5 kb')
 
   arg_parse.add_argument('-b', default=False, action='store_true',
