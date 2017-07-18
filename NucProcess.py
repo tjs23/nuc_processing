@@ -9,12 +9,13 @@ from NucContactMap import nuc_contact_map
 
 
 PROG_NAME = 'nuc_process'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
 RE_SITES = {'MboI':'^GATC_', 'AluI':'AG^CT', 'BglII':'A^GATC_T',}
 QUAL_SCHEMES = ['integer', 'phred33', 'phred64', 'solexa']
 FASTQ_READ_CHUNK = 1048576
+READ_BUFFER = 2**16
 MIN_READ_LEN = 20
 SCORE_TAG = re.compile(r'\sAS:i:(\S+)')
 SCORE_TAG_SEARCH = SCORE_TAG.search
@@ -52,14 +53,14 @@ def open_file_r(file_path):
   if file_path.endswith('.gz'):
     file_obj = gzip.open(file_path, 'rt')
   else:
-    file_obj = open(file_path, 'rU')
+    file_obj = open(file_path, 'rU', READ_BUFFER)
 
   return file_obj
 
 
 def compress_file(file_path):
 
-  in_file_obj = open(file_path)
+  in_file_obj = open(file_path, 'rU', READ_BUFFER)
   out_file_path = file_path + '.gz'
   
   out_file_obj = gzip.open(out_file_path, 'wb')
@@ -1006,7 +1007,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
         max_score_b = max(scores_b)
         
         # Max score of zero means not less than perfect match
-        if unique_map and max_score_a == 0 and max_score_b == 0 and scores_a.count(max_score_a) * scores_b.count(max_score_b) == 1:
+        if not unique_map and max_score_a == 0 and max_score_b == 0 and scores_a.count(max_score_a) * scores_b.count(max_score_b) == 1:
           n_unambig += 1
           for ncc_a, score_a in contact_a:
             if score_a == max_score_a:
@@ -1141,7 +1142,7 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, is_second=False, 
   n_short = 0
   mean_len = 0
   
-  out_file_obj = open(clipped_file_temp, 'w', 2**16)
+  out_file_obj = open(clipped_file_temp, 'w', READ_BUFFER)
   write = out_file_obj.write
   readline = in_file_obj.readline
   
@@ -1161,7 +1162,7 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, is_second=False, 
       line2 = line2[:i] + replaced_seq
       line4 = line4[:i+n_rep]
 
-    while line2[-1] == 'N':
+    while line2 and line2[-1] == 'N':
       line2 = line2[:-1]
       line4 = line4[:-1]
     
@@ -1205,7 +1206,7 @@ def get_chromo_re_fragments(sequence, re_site, offset, genome_index, align_exe, 
   re_site = re_site.replace('_', '')
   
   if 'N' in re_site:
-    re_site = re_site.replace('N', '[AGCT]') # Could allow more ambiguiuty codes, if feeling generous
+    re_site = re_site.replace('N', '[AGCT]') # Could allow more ambiguity codes, if feeling generous
     frags = re.split(re_site, sequence)
   else:
     frags = sequence.split(re_site)
@@ -1260,7 +1261,7 @@ def get_chromo_re_fragments(sequence, re_site, offset, genome_index, align_exe, 
               '-x', genome_index,
               '-p', str(num_cpu),
               '-f', '-U', fasta_file_name,
-              '-S', sam_file_path]  # Unclude unaligned fragments, naturally
+              '-S', sam_file_path]  # Include unaligned fragments, naturally
   
   #print cmd_args
   
@@ -1637,6 +1638,69 @@ def fatal(msg, prefix='%s FAILURE' % PROG_NAME):
 
   _write_log_lines(lines, verbose=True)
   sys.exit(0)
+
+
+def pair_fastq_files(fastq_paths, pair_tags=('r_1','r_2'), err_msg='Could not pair FASTQ read files.'):
+  
+  if len(fastq_paths) != len(set(fastq_paths)):
+    msg = '%s Repeat file path present.'
+    fatal(msg % (err_msg))
+      
+  t1, t2 = pair_tags
+  
+  paths_1 = []
+  paths_2 = []
+  
+  for path in fastq_paths:
+    dir_name, base_name = os.path.split(path)
+    
+    if (t1 in base_name) and (t2 in base_name):
+      msg = '%s Tags "%s" and "%s" are ambiguous in file %s'
+      fatal(msg % (err_msg, t1, t2, base_name))
+    
+    elif t1 in base_name:
+      paths_1.append((path, dir_name, base_name))
+    
+    elif t2 in base_name:
+      paths_2.append((path, dir_name, base_name))
+     
+    else:
+      msg = '%s File name %s does not contain tag "%s" or "%s"'
+      fatal(msg % (err_msg, base_name, t1, t2))
+  
+  n1 = len(paths_1)
+  n2 = len(paths_2)
+  
+  if n1 != n2:
+    msg = '%s Number of read 1 (%d) and read 2 (%d) files do not match'
+    fatal(msg % (err_msg, n1, n2))
+  
+  fastq_paths_r1 = []
+  fastq_paths_r2 = []
+  
+  for path_1, dir_name_1, file_1 in paths_1:
+    seek_file = file_1.replace(t1, t2)
+    found = []
+    
+    for path_2, dir_name_2, file_2 in paths_2:
+      if dir_name_1 != dir_name_2:
+        continue
+    
+      if file_2 == seek_file:
+        found.append(path_2)
+    
+    if len(found) == 0:
+      # No need to check unpaired read 2 files as these always result in an isolated read 1
+      msg = '%s No read 2 file "%s" found to pair with %s'
+      fatal(msg % (err_msg, seek_file, path_1))
+         
+    else: 
+      # Repeat Read 2 files not possible as repeats checked earlier
+      fastq_paths_r1.append(path_1)
+      fastq_paths_r2.append(found[0])
+  
+  return fastq_paths_r1, fastq_paths_r2
+
 
 
 def is_interrupted_job():
@@ -2127,16 +2191,15 @@ def nuc_process(fastq_paths, genome_index, re1, re2=None, sizes=(300,800), min_r
       break
   
   else:
-    file_roots = []
+    file_paths = []
     for fastq_path in fastq_paths:
       if fastq_path.lower().endswith('.gz'):
         fastq_path = fastq_path[:-3]
-    
-      dir_name, file_name = os.path.split(fastq_path)
-      file_roots.append(os.path.splitext(file_name)[0])
- 
-    file_root = '_'.join(file_roots)
-    file_root = os.path.join(dir_name, file_root)
+      
+      file_paths.append(fastq_path)
+      
+    merged_path = merge_file_names(file_paths[0], file_paths[1])
+    file_root = os.path.splitext(merged_path)[0]
   
   intermed_dir = file_root + '_nuc_processing_files'
   intermed_file_root = os.path.join(intermed_dir, os.path.basename(file_root))
@@ -2357,8 +2420,8 @@ if __name__ == '__main__':
   arg_parse = ArgumentParser(prog=PROG_NAME, description=DESCRIPTION,
                             epilog=epilog, prefix_chars='-', add_help=True)
 
-  arg_parse.add_argument('-i', nargs=2, metavar='FASTQ_FILE',
-                         help='Input paired-read FASTQ files to process (accepts wildcards that match two files)')
+  arg_parse.add_argument('-i', nargs='+', metavar='FASTQ_FILE',
+                         help='Input paired-read FASTQ files to process. Accepts wildcards that match paired files. If more than two files are input, processing will be run in batch mode using the same parameters.')
 
   arg_parse.add_argument('-g',  metavar='GENOME_FILE',
                          help='Genome index file to map sequence reads to. A new index will be created with this name if the index is missing and genome FASTA files are specified')
@@ -2379,13 +2442,13 @@ if __name__ == '__main__':
                          type=int, help='Minimum number of sequencing repeats required to support a contact')
 
   arg_parse.add_argument('-o', metavar='NCC_FILE',
-                         help='Optional output name for NCC format chromosome contact file')
+                         help='Optional output name for NCC format chromosome contact file. This option will be ignored if more than two paired FASTA files are input (i.e. for batch mode); automated naming will be used instead.')
 
   arg_parse.add_argument('-oa', metavar='NCC_FILE',
-                         help='Optional output name for ambiguous contact NCC file')
+                         help='Optional output name for ambiguous contact NCC file. This option will be ignored if more than two paired FASTA files are input (i.e. for batch mode); automated naming will be used instead.')
 
   arg_parse.add_argument('-or', metavar='REPORT_FILE',
-                         help='Optional output name for SVG format report file')
+                         help='Optional output name for SVG format report file. This option will be ignored if more than two paired FASTA files are input (i.e. for batch mode); automated naming will be used instead.')
 
   arg_parse.add_argument('-b', metavar='EXE_FILE',
                          help='Path to bowtie2 (read aligner) executable (will be searched for if not specified)')
@@ -2398,6 +2461,9 @@ if __name__ == '__main__':
 
   arg_parse.add_argument('-p', default=False, action='store_true',
                          help='The input data is population Hi-C; single-cell processing steps are avoided')
+
+  arg_parse.add_argument('-pt', nargs=2, metavar='PAIRED_READ_TAGS', default=['r_1','r_2'],
+                         help='When more than two FASTQ files are input (batch mode), the subtrings/tags which differ between paired FASTQ file paths. Default: r_1 r_2') 
 
   arg_parse.add_argument('-x', '--reindex', default=False, action='store_true', dest='x',
                          help='Force a re-indexing of the genome (given appropriate FASTA files)')
@@ -2443,6 +2509,7 @@ if __name__ == '__main__':
   qual         = args['q']
   g_fastas     = args['f']
   is_pop_data  = args['p']
+  pair_tags    = args['pt']
   remap        = args['m']
   reindex      = args['x']
   keep_files   = args['k']
@@ -2455,10 +2522,25 @@ if __name__ == '__main__':
   if sizes:
     sizes = sorted([int(x) for x in re.split('\D+', sizes)])
   
-  nuc_process(fastq_paths, genome_index, re1, re2, sizes, min_rep, num_cpu,
-              ambig, unique_map, out_file, ambig_file, report_file, align_exe,
-              qual, g_fastas, is_pop_data, remap, reindex, keep_files,
-              lig_junc, zip_files, sam_format, verbose)
+  if len(fastq_paths) > 2: # Batch mode
+    fastq_paths_1, fastq_paths_2 = pair_fastq_files(fastq_paths, pair_tags)
+    
+    if out_file or ambig_file or report_file:
+      msg = 'Output naming options ignored for batch mode. Automated naming will be used for each FASTQ pair'
+      warn(msg)
+    
+    for fastq_path_pair in zip(fastq_paths_1, fastq_paths_2):
+      nuc_process(fastq_path_pair, genome_index, re1, re2, sizes, min_rep, num_cpu,
+                  ambig, unique_map, None, None, None, align_exe,
+                  qual, g_fastas, is_pop_data, remap, reindex, keep_files,
+                  lig_junc, zip_files, sam_format, verbose)
+       
+  else:
+    nuc_process(fastq_paths, genome_index, re1, re2, sizes, min_rep, num_cpu,
+                ambig, unique_map, out_file, ambig_file, report_file, align_exe,
+                qual, g_fastas, is_pop_data, remap, reindex, keep_files,
+                lig_junc, zip_files, sam_format, verbose)
+ 
     
   # Required:
   #  - Output CSV report file option
