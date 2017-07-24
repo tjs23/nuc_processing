@@ -1,12 +1,13 @@
-from sys import stdout, stderr
+from sys import stdout, stderr, exit
 from time import time
 
 PROG_NAME = 'splice_fastqs'
 VERSION = '1.0.0'
 DESCRIPTION = 'A Python script to join sequence and quality data (e.g. barcodes to genomic sequence) in two ordered FASTQ files'
 
-def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, keep_rep_ids=False, io_buffer=int(1e8)): 
 
+def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, keep_rep_ids=False, io_buffer=int(1e8)): # 2,147,483,647
+  
   if out_path:
     out_file_obj = open(out_path, 'w', buffering=io_buffer)
   else:
@@ -35,11 +36,14 @@ def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, kee
     
     while line_a1 and line_b1:
       
-      if check_ids and (line_a1 != line_b1):
-        stderr.write('FAILURE: Line mismatch at entry %d when comparing %s and %s\n' % (fastq_path_a, fastq_path_))
-        stderr.write(line_a1)
-        stderr.write(line_b1)
-        sys.exit(0)
+      if check_ids:
+        m = line_a1.rfind(' ')
+        n = line_b1.rfind(' ')
+        if line_a1[:m] != line_b1[:n]:
+          stderr.write('FAILURE: Line mismatch at entry %d when comparing %s and %s\n' % (i, fastq_path_a, fastq_path_b))
+          stderr.write(line_a1)
+          stderr.write(line_b1)
+          exit(0)
       
       line_1 = line_a1
       line_2 = line_a2[:-1] + line_b2
