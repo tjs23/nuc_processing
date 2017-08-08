@@ -759,29 +759,34 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
 
   stdout.write("\n") # move the cursor to the next line
   
-  if is_paired:
-    if diff_ends:
-      msg1 = 'Found %d read pairs' % n_reads
-    else:
-      msg1 = 'Found %d read pairs and %d mismatches (%.3f%%)' % (n_reads, n_mismatched, n_mismatched/float(n_reads))
+  if diff_ends:
+    msg1 = 'Found %d read pairs' % n_reads
+  else:
+    msg1 = 'Found %d read pairs and %d end mismatches (%.3f%%)' % (n_reads, n_mismatched, n_mismatched/float(n_reads))
   
+  if is_paired:
     msg2 = 'Found unknown base (N) at start of %d and %d reads for respective inputs' % (nn1, nn2)
   
   else:
-    msg1 = 'Found %d reads and %d mismatches (%.3f%%)' % (n_reads, n_mismatched, n_mismatched/float(n_reads))
     msg2 = 'Found unknown base (N) at start of %d reads' % (nn1, )     
-    
+  
+  levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])  
+  msg3 = 'Barcode sequences: Expected:{:,} Found:{:,} - {}'.format(len(sample_names), len(bc_counts), levels)
+  msg4 = 'Barcode counts: Perfect:{:,} Imperfect:{:,} Unallocated:{:,}'.format(n_valid, n_imperfect, n_lost)
+  
   info(msg1)  
   info(msg2)  
+  info(msg3)  
+  info(msg4)
   
   if diff_ends:
-    for bc_key in sorted(bc_counts):
+    for bc_key in sorted(sample_names):
       nb = bc_counts[bc_key]
       msg = '{} barcode: {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc_key, nb, nb/float(100.0*n_reads))
       info(msg)  
 
   else:
-    for bc_key in sorted(bc_counts):
+    for bc_key in sorted(sample_names):
       nb = bc_counts[bc_key]
       bc1, bc2 = bc_key.split('_')
       msg = '{} barcodes: {} {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc1, bc2, nb, nb/float(100.0*n_reads))
@@ -794,9 +799,15 @@ if __name__ == '__main__':
  
   from argparse import ArgumentParser
   
+  # -k Keep barcode seqs, don't trim
+  
+  # allow separate barcode files
+  
   # # To consider
+  # Seek complements -rc1 -rc2 
   # GZIP output?
   # Use Illumina contents file?
+  # Quality based truncation? Trim short?
   
   
   epilog = 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
