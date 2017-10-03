@@ -1,6 +1,44 @@
+"""
+---- COPYRIGHT ----------------------------------------------------------------
+
+Copyright (C) 20016-2017
+Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
+
+
+---- LICENSE ------------------------------------------------------------------
+
+This file is part of NucProcess.
+
+NucProcess is free software: you can redistribute it and/or modify it under the
+terms of the GNU Lesser General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+NucProcess is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with NucProcess.  If not, see <http://www.gnu.org/licenses/>.
+
+
+---- CITATION -----------------------------------------------------------------
+
+If you are using this software for academic purposes, we suggest quoting the
+following reference:
+
+Stevens TJ, Lando D, Basu S, Atkinson LP, Cao Y, Lee SF, Leeb M, Wohlfahrt KJ,
+Boucher W, O'Shaughnessy-Kirwan A, Cramard J, Faure AJ, Ralser M, Blanco E, Morey
+L, Sansó M, Palayret MGS, Lehner B, Di Croce L, Wutz A, Hendrich B, Klenerman D, 
+Laue ED. 3D structures of individual mammalian genomes studied by single-cell
+Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Mar
+13. PubMed PMID: 28289288; PubMed Central PMCID: PMC5385134.
+
+"""
+
 from collections import defaultdict
 from math import sin, cos, pi
-import colorsys, base64, cStringIO
+import colorsys, base64, cStringIO, sys
 import numpy as np
 from scipy import misc
 
@@ -34,13 +72,18 @@ class SvgDocument(object):
   
   def write_file(self, file_name, width, height):
     
-    file_obj = open(file_name, 'w')
+    if sys.version_info[0] < 3:
+      import codecs
+      open_func = codecs.open
     
-    file_obj.writelines(self._svg_head(width, height))
-    file_obj.writelines(self._svg_lines)
-    file_obj.writelines(self._svg_tail())   
-    file_obj.close()
-  
+    else:
+      open_func = open
+    
+    with open_func(file_name, 'w', encoding='utf-8') as file_obj:
+      file_obj.writelines(self._svg_head(width, height))
+      file_obj.writelines(self._svg_lines)
+      file_obj.writelines(self._svg_tail())
+      file_obj.close()
   
   def _svg_head(self, width, height):
 
@@ -55,11 +98,11 @@ class SvgDocument(object):
     return ['</svg>\n']
 
  
-  def group_start(self, opacity=1.0, stroke='black', width=1):
+  def group_start(self, opacity=1.0, stroke='black', stroke_opacity=1.0, width=1):
  
-    data = (opacity, stroke, width)
+    data = (opacity, stroke_opacity, stroke, width)
  
-    self._svg_lines += ['  <g style="fill-opacity:%.1f; stroke:%s; stroke-width:%d;">\n' % data]
+    self._svg_lines += ['  <g style="fill-opacity:%.1f; stroke-opacity:%.1f; stroke:%s; stroke-width:%d;">\n' % data]
     
   
   def group_end(self):
@@ -75,7 +118,7 @@ class SvgDocument(object):
     path[-1] = 'Z'
       
     line = '    <path d="%s" fill="%s" stroke="%s" stroke-width="%d" />\n' % (' '.join(path), fill, color, width)
-    self._svg_lines += line
+    self._svg_lines.append(line)
     
 
   def lines(self, coords, color='black', width=1):
@@ -87,14 +130,14 @@ class SvgDocument(object):
       
     line = '     <path d="%s" fill-opacity="0.0" stroke="%s" stroke-width="%d" />\n' % (' '.join(path), color, width)
     
-    self._svg_lines += line
+    self._svg_lines.append(line)
 
 
   def line(self, coords, color='black', line_width=1):
   
     x1, y1, x2, y2 = coords
     line = '     <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%d" />\n' % (x1, y1, x2, y2, color, line_width)
-    self._svg_lines += line
+    self._svg_lines.append(line)
     
     
   def circle(self, center, radius, color='black', fill='#808080'):
@@ -104,7 +147,7 @@ class SvgDocument(object):
     y = cy + radius
     
     line = '     <circle cx="%d" cy="%d" r="%d" stroke="%s" fill="%s" />\n' % (x,y,radius,color,fill)
-    self._svg_lines += line
+    self._svg_lines.append(line)
 
 
   def rect(self, coords, color='black', fill='#808080'):
@@ -116,7 +159,7 @@ class SvgDocument(object):
     w = abs(x1 - x0)
     h = abs(y1 - y0)
     line = '     <rect x="%d" y="%d" height="%d" width="%d" stroke="%s" fill="%s" />\n' % (x,y,h,w,color,fill)
-    self._svg_lines += line
+    self._svg_lines.append(line)
 
 
   def square(self, center, radius, color='black', fill='#808080'):
@@ -126,10 +169,10 @@ class SvgDocument(object):
     y = cy - radius
     r = 2*radius
     line = '     <rect x="%d" y="%d" height="%d" width="%d" stroke="%s" fill="%s" />\n' % (x,y,r,r,color,fill)
-    self._svg_lines += line
+    self._svg_lines.append(line)
 
 
-  def text(self, text, coords, anchor='start', size=16, bold=False, font=None, color=None, angle=None, vert_align=None):
+  def text(self, text, coords, anchor='start', size=16, bold=False, font=None, color=None, angle=None, vert_align=None, sup=None):
     
     if not font:
       font = self.font
@@ -150,9 +193,18 @@ class SvgDocument(object):
     if bold:
       attrs += ' font-weight="bold"'
     
-    line = '     <text x="%d" y="%d" text-anchor="%s" font-family="%s" font-size="%d"%s>%s</text>\n' % (x,y,anchor,font,size,attrs,text)
-     
-    self._svg_lines += line
+    
+    
+    if sup:
+      sup = '<tspan font-size="%d" dy="%s">%s</tspan>\n' % ((2*size)/3,-size/2,sup)
+
+    else:
+      sup = ''
+    
+    line = '     <text x="%d" y="%d" text-anchor="%s" font-family="%s" font-size="%d"%s>%s%s</text>\n' % (x,y,anchor,font,size,attrs,text,sup)
+      
+      
+    self._svg_lines.append(line)
 
   def segment(self, x0, y0, r, a1, a2, color='black', fill='grey', line_width=1):
     
@@ -173,7 +225,7 @@ class SvgDocument(object):
     path = 'M %d %d L %d %d A %d %d %d %d %d %d %d Z' % (x0, y0, x1, y1, r, r, 0, la, clockwise, x2, y2)
 
     line = '    <path d="%s" fill="%s" stroke="%s" stroke-width="%d" />\n' % (path, fill, color, line_width)
-    self._svg_lines += line
+    self._svg_lines.append(line)
   
   
   def image(self, x, y, w, h, data):
@@ -185,7 +237,7 @@ class SvgDocument(object):
      
     line = '     <image x="%d" y="%d" width="%d" height="%d" xlink:href="data:image/png;base64,%s" />\n' % (x, y, w, h, base_64_data)
      
-    self._svg_lines += line
+    self._svg_lines.append(line)
       
       
   def _graph_get_draw_coords(self, data_points, data_region, plot_region):
@@ -193,10 +245,10 @@ class SvgDocument(object):
     dr0, dr1, dr2, dr3 = data_region
     pr0, pr1, pr2, pr3 = plot_region
     
-    delta_x_plot = pr2 - pr0
-    delta_y_plot = pr3 - pr1
-    delta_x_data = dr2 - dr0
-    delta_y_data = dr3 - dr1
+    delta_x_plot = pr2 - pr0 or 1.0
+    delta_y_plot = pr3 - pr1 or 1.0
+    delta_x_data = dr2 - dr0 or 1.0
+    delta_y_data = dr3 - dr1 or 1.0
   
     ppv_x = delta_x_plot/float(delta_x_data)
     ppv_y = delta_y_plot/float(delta_y_data)
@@ -433,7 +485,8 @@ class SvgDocument(object):
             symbols=None, line_widths=None, symbol_sizes=None,
             legend=False, title=None, x_labels=None, plot_offset=(100, 50),
             axis_color='black', bg_color='#F0F0F0', font=None, font_size=16, line_width=1,
-            x_ticks=True, y_ticks=True, x_grid=False, y_grid=False):
+            x_ticks=True, y_ticks=True, x_grid=False, y_grid=False,
+            texts=None, opacities=None, x_log_base=None, y_log_base=None):
     
     n_data = len(data_lists)
     
@@ -454,6 +507,9 @@ class SvgDocument(object):
     
     if not symbol_sizes:
       symbol_sizes = [2 for i in range(n_data)]
+    
+    if not opacities:
+      opacities = [None for i in range(n_data)]
     
     # Data region, check santity
     x_min, x_max, y_min, y_max = self._graph_check_points(data_lists[0])
@@ -501,27 +557,38 @@ class SvgDocument(object):
 
     self._graph_draw_ticks(data_region, plot_region, x_label, y_label,
                            line_width, x_ticks, y_ticks,
-                           x_grid, y_grid, x_labels)
+                           x_grid, y_grid, x_labels, x_log_base, y_log_base)
     
     if legend:
-      x2 = x0 + (1.05*(x1-x0))
-      y2 = y0 + (0.90*(y1-y0))
-
+      if legend is True:
+        x2 = x0 + (1.05*(x1-x0))
+        y2 = y0 + (0.90*(y1-y0))
+      else:
+        x2, y2 = legend
+        draw_coords = self._graph_get_draw_coords([(x2, y2, None)], data_region, plot_region)
+        x2, y2 = draw_coords[0][:2]
+        
       for i, data_set in enumerate(data_lists):
         name = names[i]
-        color = colors[i % n_colors]
-        symbol = symbols[i] if graph_type in (LINE_TYPE, SCATTER_TYPE) else 'square'
-        self._graph_draw_symbols( [(x2, y2, None, None)], color, symbol, fill=color, symbol_size=7)
-        self.text(name, (x2+font_size,y2), anchor='start', size=font_size)
-        y2 += font_size
+        
+        if name:
+          color = colors[i % n_colors]
+          symbol = symbols[i] if graph_type in (LINE_TYPE, SCATTER_TYPE) else 'square'
+          self._graph_draw_symbols( [(x2, y2, None, None)], color, symbol, fill=color, symbol_size=7)
+          self.text(name, (x2+font_size,y2), anchor='start', size=font_size, vert_align='middle')
+          y2 += font_size
   
     for i, data_points in enumerate(data_lists):
       color = colors[i % n_colors]
       symbol = symbols[i]
+      opacity = opacities[i]
       lw = line_widths[i]
       symbol_size = symbol_sizes[i]
       coords = self._graph_get_draw_coords(data_points, data_region, plot_region)
       
+      if opacity is not None:
+        self.group_start(stroke_opacity=opacity)
+        
       if graph_type == LINE_TYPE:
         points = [point[:2] for point in coords]
         self.lines(points, color, lw)
@@ -534,9 +601,20 @@ class SvgDocument(object):
       else: # SCATTER_TYPE
         self._graph_draw_symbols(coords, color, symbol, symbol_size, fill='#808080')
 
+      if opacity is not None:
+        self.group_end()
+
     if title:
-      self.text(title, ((x0+x1)/2.0, y1/2.0))
+      self.text(title, ((x0+x1)/2.0, y1/2.0), anchor='middle', size=font_size+2)
  
+    if texts:
+       
+      for text, color, data_coords in texts:
+        x, y = data_coords
+        draw_coords = self._graph_get_draw_coords([(x, y, None)], data_region, plot_region)
+        x, y = draw_coords[0][:2]
+        self.text(text, (x+(font_size/2), y), color=color, vert_align='middle')
+       
   
   def _graph_draw_boxes(self, coords, color, plot_region):
   
@@ -612,7 +690,8 @@ class SvgDocument(object):
  
   def _graph_draw_ticks(self, data_region, plot_region, x_label, y_label,
                         line_width=1, x_ticks=True, y_ticks=True,
-                        x_grid=False, y_grid=False, x_labels=None):
+                        x_grid=False, y_grid=False, x_labels=None,
+                        x_log_base=None, y_log_base=None):
   
     def format_text(text):
  
@@ -635,15 +714,15 @@ class SvgDocument(object):
     x0, y0, x1, y1 = plot_region
     delta_xplot = x1 - x0
     delta_yplot = y1 - y0
-    delta_x_data = data_region[2] - data_region[0]
-    delta_y_data = data_region[3] - data_region[1]
+    delta_x_data = data_region[2] - data_region[0] or 1.0
+    delta_y_data = data_region[3] - data_region[1] or 1.0
     size = 7
     
     if x_labels:
       sizes = [len(x) for x in x_labels]
       size = max(sizes)
   
-    y_close = 40
+    y_close = 80
     x_close = 140
     
     xs = x0 - 8
@@ -703,7 +782,11 @@ class SvgDocument(object):
         if x_labels and (i-1 < len(x_labels)):
           self.text(x_labels[i-1], (x, yt), anchor='middle')
         else:
-          self.text(format_text(tick_x), (x, yt), anchor='middle')
+          text = format_text(tick_x)
+          if x_log_base:
+            self.text(x_log_base, (x, yt), anchor='middle', sup=text)
+          else:
+            self.text(text, (x, yt), anchor='middle')
  
         if x_grid:
           self.line((x, y0, x, y1), 'black', 1)
@@ -721,8 +804,13 @@ class SvgDocument(object):
           continue
         if y > plot_region[1]:
           continue
-
-        self.text(format_text(tick_y), (xt, y), anchor='end', vert_align='middle')
+        
+        text = format_text(tick_y)
+        
+        if y_log_base:
+          self.text(y_log_base, (xt, y), anchor='end', vert_align='middle', sup=text)
+        else:
+          self.text(text, (xt, y), anchor='end', vert_align='middle')
         
         if y_grid:
           self.line((x0, y, x1, y), 'black', 1)
@@ -730,10 +818,10 @@ class SvgDocument(object):
         self.line((x0, y, xs, y), 'black', 1)
 
     if x_label:
-      self.text(x_label, ((x0+x1)/2.0, yt+24))
+      self.text(x_label, ((x0+x1)/2.0, yt+24), anchor='middle')
 
     if y_label:
-      self.text(y_label, (xt-65,((y0+y1)/2.0)), angle=-90)
+      self.text(y_label, (xt-65,((y0+y1)/2.0)), angle=-90, anchor='middle')
    
 
   def pie_chart(self, x, y, height, values, texts=None, colors=None, line_color='black', small_val=0, line_width=1, box_size=16, pad=4):

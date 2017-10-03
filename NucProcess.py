@@ -1,3 +1,41 @@
+"""
+---- COPYRIGHT ----------------------------------------------------------------
+
+Copyright (C) 20016-2017
+Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
+
+
+---- LICENSE ------------------------------------------------------------------
+
+This file is part of NucProcess.
+
+NucProcess is free software: you can redistribute it and/or modify it under the
+terms of the GNU Lesser General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+NucProcess is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with NucProcess.  If not, see <http://www.gnu.org/licenses/>.
+
+
+---- CITATION -----------------------------------------------------------------
+
+If you are using this software for academic purposes, we suggest quoting the
+following reference:
+
+Stevens TJ, Lando D, Basu S, Atkinson LP, Cao Y, Lee SF, Leeb M, Wohlfahrt KJ,
+Boucher W, O'Shaughnessy-Kirwan A, Cramard J, Faure AJ, Ralser M, Blanco E, Morey
+L, Sansó M, Palayret MGS, Lehner B, Di Croce L, Wutz A, Hendrich B, Klenerman D, 
+Laue ED. 3D structures of individual mammalian genomes studied by single-cell
+Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Mar
+13. PubMed PMID: 28289288; PubMed Central PMCID: PMC5385134.
+
+"""
+
 import sys, os, re, shutil, gzip, json, string
 import numpy as np
 
@@ -12,7 +50,11 @@ PROG_NAME = 'nuc_process'
 VERSION = '1.0.1'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
-RE_SITES = {'MboI':'^GATC_', 'AluI':'AG^CT', 'BglII':'A^GATC_T',}
+RE_SITES = {'MboI'   :'^GATC_',
+            'DpnII'  :'^GATC_',
+            'AluI'   :'AG^CT',
+            'BglII'  :'A^GATC_T',
+            'HindIII':'A^AGCT_T'}
 QUAL_SCHEMES = ['integer', 'phred33', 'phred64', 'solexa']
 FASTQ_READ_CHUNK = 1048576
 READ_BUFFER = 2**16
@@ -423,50 +465,52 @@ def remove_redundancy(ncc_file, min_repeats=2, keep_files=True, zip_files=False,
     ncc_idx = (0,3,5,6,9,11) # Compare on read starts - does not consider ends as these can vary in read replicates
   
   line_prev = sort_file_obj.readline()
-  line_data = line_prev.split()
   
-  n = 1
-  prev = [line_data[i] for i in ncc_idx]
-  len_prev = abs(int(line_data[4]) - int(line_data[3])) + abs(int(line_data[10]) - int(line_data[9]))
-    
-  # Remove redundancy
-  for line in sort_file_obj:
-    n_pairs += 1
-    line_data = line.split()
-    curr = [line_data[i] for i in ncc_idx]
-    len_curr = abs(int(line_data[4]) - int(line_data[3])) + abs(int(line_data[10]) - int(line_data[9]))
-    
-    if curr == prev:
-      n += 1
-      if len_curr > len_prev: # This repeat is better
-        len_prev = len_curr
+  if line_prev: # Could be empty
+    line_data = line_prev.split()
+ 
+    n = 1
+    prev = [line_data[i] for i in ncc_idx]
+    len_prev = abs(int(line_data[4]) - int(line_data[3])) + abs(int(line_data[10]) - int(line_data[9]))
+ 
+    # Remove redundancy
+    for line in sort_file_obj:
+      n_pairs += 1
+      line_data = line.split()
+      curr = [line_data[i] for i in ncc_idx]
+      len_curr = abs(int(line_data[4]) - int(line_data[3])) + abs(int(line_data[10]) - int(line_data[9]))
+ 
+      if curr == prev:
+        n += 1
+        if len_curr > len_prev: # This repeat is better
+          len_prev = len_curr
+          line_prev = line
+ 
+        continue
+ 
+      else: # Not a repeat, write previous
+ 
+        if n < min_repeats:
+          if keep_files:
+            uniq_file_obj.write(line_prev)
+          n_unique += 1
+        else:
+          out_file_obj.write(line_prev)
+          n_redundant += 1
+ 
+        mean_redundancy += n
+ 
         line_prev = line
-    
-      continue
-    
-    else: # Not a repeat, write previous
-      
-      if n < min_repeats:
-        if keep_files:
-          uniq_file_obj.write(line_prev)
-        n_unique += 1
-      else:
-        out_file_obj.write(line_prev)
-        n_redundant += 1
-      
-      mean_redundancy += n
-      
-      line_prev = line
-      len_prev = len_curr
-      prev = curr
-      n = 1
-  
-  # Write remaining    
-  if n < min_repeats:
-    if keep_files:
-      uniq_file_obj.write(line_prev)
-  else:
-    out_file_obj.write(line_prev)
+        len_prev = len_curr
+        prev = curr
+        n = 1
+ 
+    # Write remaining
+    if n < min_repeats:
+      if keep_files:
+        uniq_file_obj.write(line_prev)
+    else:
+      out_file_obj.write(line_prev)
  
   out_file_obj.close()
 
@@ -482,7 +526,7 @@ def remove_redundancy(ncc_file, min_repeats=2, keep_files=True, zip_files=False,
   os.unlink(sort_file_name) # Remove temp file
   
   n = n_unique + n_redundant
-  mean_redundancy /= float(n)
+  mean_redundancy /= float(n) or 1.0
   
   stats = [('input_pairs', n_pairs),
            ('unique', (n_unique, n)),
@@ -929,18 +973,18 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
   line2 = readline2()  
   
   # Skip to end of headers
-  
-  while line1[0] == '@':
+ 
+  while line1 and line1[0] == '@':
     line1 = readline1()
 
-  while line2[0] == '@':
+  while line2 and line2[0] == '@':
     line2 = readline2()
-  
+ 
   # Process data lines
-  
+ 
   id1 = line1[:10]
   id2 = line2[:10]
-  
+ 
   while id1 and id2:
     _id = min(id1, id2)
 
@@ -948,7 +992,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
     contact_b = []
     scores_a = []
     scores_b = []
-    
+ 
     while id1 == _id:
       n_map1 += 1
       data_a = line1.split('\t')
@@ -960,16 +1004,16 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
 
       if strand_a == '-':
         start_a, end_a = end_a, start_a  # The sequencing read started from the other end
-    
+ 
       if chr_a != '*':
         score_a = int(SCORE_TAG_SEARCH(line1).group(1))
         ncc_a = (chr_a, 0, 0, start_a, end_a, strand_a) # Strand info kept because ends can be diffferent for replicate reads, no Re fragment positions, yet
         contact_a.append((ncc_a, score_a))
         scores_a.append(score_a)
-      
+ 
       line1 = readline1()
       id1 = line1[:10]
-    
+ 
     while id2 == _id:
       n_map2 += 1
       data_b = line2.split('\t')
@@ -981,7 +1025,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
 
       if strand_b == '-':
         start_b, end_b = end_b, start_b  # The sequencing read started from the other end
-      
+ 
       if chr_b != '*':
         score_b = int(SCORE_TAG_SEARCH(line2).group(1))
         ncc_b = (chr_b, 0, 0, start_b, end_b, strand_b)
@@ -990,22 +1034,22 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
 
       line2 = readline2()
       id2 = line2[:10]
-    
+ 
     n_a = len(contact_a)
     n_b = len(contact_b)
     n = n_a * n_b
     n_pairs += 1
-    
+ 
     if n < 1:
       n_unmapped += 1
-    
+ 
     else:
       ambig = n > 1
-       
+ 
       if n > 1:
         max_score_a = max(scores_a)
         max_score_b = max(scores_b)
-        
+ 
         # Max score of zero means not less than perfect match
         if not unique_map and max_score_a == 0 and max_score_b == 0 and scores_a.count(max_score_a) * scores_b.count(max_score_b) == 1:
           n_unambig += 1
@@ -1017,15 +1061,15 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
                   break
               else:
                 continue
-              
-              break  
-              
+ 
+              break
+ 
         else:
           n_ambig += 1
           for ncc_a, score_a in contact_a:
             for ncc_b, score_b in contact_b:
               write_ncc(ncc_a, ncc_b, n_pairs, int(_id), True) # Write all pair combinations
-            
+ 
       else:
         n_unambig += 1
         for ncc_a, score_a in contact_a:
@@ -1034,7 +1078,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
  
   #os.unlink(sort_sam_file1)
   #os.unlink(sort_sam_file2)
-           
+ 
   ncc_file_obj.close()
     
   stats = [('end_1_aligned', n_map1), 
@@ -1183,7 +1227,7 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, is_second=False, 
     line1 = readline()
   
   if n_reads:
-    mean_len /= n_reads
+    mean_len /= float(n_reads)
 
   stats = [('input_reads',n_reads),
            ('clipped',(n_clip, n_reads)),
@@ -2212,6 +2256,10 @@ def nuc_process(fastq_paths, genome_index, re1, re2=None, sizes=(300,800), min_r
   else:
     out_file = file_root + '.ncc'
     
+    # # # # # # # # # # # 
+    if os.path.exists(out_file):
+      return
+    
   if ambig:
     if ambig_file:
       ambig_file = check_file_extension(ambig_file, '.ncc')
@@ -2295,8 +2343,11 @@ def nuc_process(fastq_paths, genome_index, re1, re2=None, sizes=(300,800), min_r
   info('Mapping FASTQ reads...') 
   sam_file1 = map_reads(clipped_file1, genome_index, align_exe, num_cpu, ambig)
   sam_file2 = map_reads(clipped_file2, genome_index, align_exe, num_cpu, ambig, is_second=True)
-
-   
+  
+  if not keep_files:
+    os.unlink(clipped_file1)
+    os.unlink(clipped_file2)
+ 
   info('Pairing FASTQ reads...')
   paired_ncc_file, ambig_paired_ncc_file = pair_mapped_seqs(sam_file1, sam_file2, intermed_file_root, ambig, unique_map)
   
@@ -2393,12 +2444,19 @@ def nuc_process(fastq_paths, genome_index, re1, re2=None, sizes=(300,800), min_r
       if ambig:
         os.unlink(ambig_clean_ncc_file)
   
+  if not keep_files:
+    os.unlink(sam_file1) 
+    os.unlink(sam_file2)
+ 
   final_stats = get_ncc_stats(out_file)
   log_report('final', final_stats)
   
   write_report(report_file)
-
-  nuc_contact_map(out_file, '_contact_map')
+  
+  n_contacts = final_stats[0][1]
+  
+  if n_contacts > 1:
+    nuc_contact_map(out_file, '_contact_map')
 
   info('Nuc Process all done.')
     

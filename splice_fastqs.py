@@ -1,3 +1,39 @@
+"""
+---- COPYRIGHT ----------------------------------------------------------------
+
+Copyright (C) 20016-2017
+Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
+
+
+---- LICENSE ------------------------------------------------------------------
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+NucProcess is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with NucProcess.  If not, see <http://www.gnu.org/licenses/>.
+
+
+---- CITATION -----------------------------------------------------------------
+
+If you are using this software for academic purposes, we suggest quoting the
+following reference:
+
+Stevens TJ, Lando D, Basu S, Atkinson LP, Cao Y, Lee SF, Leeb M, Wohlfahrt KJ,
+Boucher W, O'Shaughnessy-Kirwan A, Cramard J, Faure AJ, Ralser M, Blanco E, Morey
+L, Sansó M, Palayret MGS, Lehner B, Di Croce L, Wutz A, Hendrich B, Klenerman D, 
+Laue ED. 3D structures of individual mammalian genomes studied by single-cell
+Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Mar
+13. PubMed PMID: 28289288; PubMed Central PMCID: PMC5385134.
+
+"""
+
 from sys import stdout, stderr, exit
 from time import time
 

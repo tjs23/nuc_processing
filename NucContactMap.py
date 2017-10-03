@@ -1,3 +1,41 @@
+"""
+---- COPYRIGHT ----------------------------------------------------------------
+
+Copyright (C) 20016-2017
+Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
+
+
+---- LICENSE ------------------------------------------------------------------
+
+This file is part of NucProcess.
+
+NucProcess is free software: you can redistribute it and/or modify it under the
+terms of the GNU Lesser General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+NucProcess is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with NucProcess.  If not, see <http://www.gnu.org/licenses/>.
+
+
+---- CITATION -----------------------------------------------------------------
+
+If you are using this software for academic purposes, we suggest quoting the
+following reference:
+
+Stevens TJ, Lando D, Basu S, Atkinson LP, Cao Y, Lee SF, Leeb M, Wohlfahrt KJ,
+Boucher W, O'Shaughnessy-Kirwan A, Cramard J, Faure AJ, Ralser M, Blanco E, Morey
+L, Sansó M, Palayret MGS, Lehner B, Di Croce L, Wutz A, Hendrich B, Klenerman D, 
+Laue ED. 3D structures of individual mammalian genomes studied by single-cell
+Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Mar
+13. PubMed PMID: 28289288; PubMed Central PMCID: PMC5385134.
+
+"""
+
 import numpy as np
 import os, sys
 
@@ -83,6 +121,10 @@ def _get_trans_dev(trans_counts):
   cp = float(len(trans_counts))
 
   vals = np.array(trans_counts.values(), float)
+  
+  if not len(vals):
+    return 0.0, '?'
+  
   vals -= vals.min()
   vals /= vals.sum() or 1.0
   vals = vals[vals.argsort()]
@@ -165,6 +207,9 @@ def _get_mito_fraction(contacts, min_sep=1e2, sep_range=(10**6.5, 10**7.5)):
     total += n
     in_range += n-(smaller+larger)
   
+  if not total:
+    return 0.0, '?'
+  
   frac  = in_range/float(total)
   
   if frac < 0.30:
@@ -175,24 +220,13 @@ def _get_mito_fraction(contacts, min_sep=1e2, sep_range=(10**6.5, 10**7.5)):
     score_cat = 'Strong M'
          
   return frac, score_cat
-  
-  
-def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5, black_bg=False, color=None, font=None, font_size=12, line_width=1):
-    
-  bin_size = int(bin_size * 1e6)
-  chromo_limits = {}  
-  
-  if svg_tag == '-':
-    svg_path = '-'
-  
-  else:
-    svg_path = '{}{}.svg'.format(os.path.splitext(ncc_path)[0], svg_tag)  
 
-  if svg_path and svg_path != '-':
-    info('Making contact map for {}'.format(ncc_path))
-    
-  # Load NCC data
+
+def load_ncc(ncc_path):
+  
+  chromo_limits = {}  
   contacts = {}
+  
   with open(ncc_path) as in_file_obj:
     for line in in_file_obj:
       chr_a, f_start_a, f_end_a, start_a, end_a, strand_a, chr_b, f_start_b, f_end_b, start_b, end_b, strand_b, ambig_group, pair_id, swap_pair = line.split()
@@ -243,6 +277,24 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5,
         p_b = f_start_b
         
       contact_list.append((p_a, p_b))
+
+  return chromo_limits, contacts
+  
+  
+def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5, black_bg=False, color=None, font=None, font_size=12, line_width=1):
+    
+  bin_size = int(bin_size * 1e6)
+  
+  if svg_tag == '-':
+    svg_path = '-'
+  
+  else:
+    svg_path = '{}{}.svg'.format(os.path.splitext(ncc_path)[0], svg_tag)  
+
+  if svg_path and svg_path != '-':
+    info('Making contact map for {}'.format(ncc_path))
+    
+  chromo_limits, contacts = load_ncc(ncc_path)
 
   if not chromo_limits:
     fatal('No chromosome contact data read')
