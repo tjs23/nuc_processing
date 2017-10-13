@@ -36,11 +36,25 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 
 from sys import stdout, stderr, exit
 from time import time
+import gzip
 
 PROG_NAME = 'splice_fastqs'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 DESCRIPTION = 'A Python script to join sequence and quality data (e.g. barcodes to genomic sequence) in two ordered FASTQ files'
+IO_BUFFER = int(4e6)
 
+def open_file(file_path, mode=None, gzip_exts=('.gz','.gzip')):
+  """
+  GZIP agnostic file opening
+  """
+  
+  if os.path.splitext(file_path)[1].lower() in gzip_exts:
+    file_obj = gzip.open(file_path, mode or 'rt')
+  else:
+    file_obj = open(file_path, mode or 'rU', IO_BUFFER)
+  
+  return file_obj
+  
 
 def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, keep_rep_ids=False, io_buffer=int(1e8)): # 2,147,483,647
   
@@ -54,7 +68,7 @@ def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, kee
   
   t0 = time()
     
-  with open(fastq_path_a, 'r', buffering=io_buffer) as fq_a, open(fastq_path_b, buffering=io_buffer) as fq_b:
+  with open_file(fastq_path_a, io_buffer) as fq_a, open_file(fastq_path_b, io_buffer) as fq_b:
     
     out_lines = []
     
