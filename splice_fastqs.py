@@ -56,10 +56,10 @@ def open_file(file_path, mode=None, gzip_exts=('.gz','.gzip')):
   return file_obj
   
 
-def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, keep_rep_ids=False, io_buffer=int(1e8)): # 2,147,483,647
+def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, keep_rep_ids=False): # 2,147,483,647
   
   if out_path:
-    out_file_obj = open(out_path, 'w', buffering=io_buffer)
+    out_file_obj = open(out_path, 'w', buffering=IO_BUFFER)
   else:
     out_file_obj = stdout
   
@@ -68,7 +68,7 @@ def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, kee
   
   t0 = time()
     
-  with open_file(fastq_path_a, io_buffer) as fq_a, open_file(fastq_path_b, io_buffer) as fq_b:
+  with open_file(fastq_path_a) as fq_a, open_file(fastq_path_b) as fq_b:
     
     out_lines = []
     
