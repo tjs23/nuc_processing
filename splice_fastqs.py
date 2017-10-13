@@ -36,7 +36,7 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 
 from sys import stdout, stderr, exit
 from time import time
-import gzip
+import os, gzip
 
 PROG_NAME = 'splice_fastqs'
 VERSION = '1.0.1'
