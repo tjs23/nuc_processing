@@ -128,7 +128,7 @@ class SvgDocument(object):
       path += ['%d' % x, '%d' % y, 'L']
     del path[-1]
       
-    line = '     <path d="%s" fill-opacity="0.0" stroke="%s" stroke-width="%d" />\n' % (' '.join(path), color, width)
+    line = '     <path d="%s" fill-opacity="0.0" stroke="%s" stroke-width="%.2fpx" />\n' % (' '.join(path), color, width)
     
     self._svg_lines.append(line)
 
@@ -136,7 +136,7 @@ class SvgDocument(object):
   def line(self, coords, color='black', line_width=1):
   
     x1, y1, x2, y2 = coords
-    line = '     <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%d" />\n' % (x1, y1, x2, y2, color, line_width)
+    line = '     <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%.2fpx" />\n' % (x1, y1, x2, y2, color, line_width)
     self._svg_lines.append(line)
     
     
@@ -384,7 +384,11 @@ class SvgDocument(object):
     
     c_matrix /= max(c_matrix.max(), -c_matrix.min())
     
-    n, m = c_matrix.shape
+    if c_matrix.ndim == 2:
+      n, m = c_matrix.shape
+      d = 1
+    else:
+      n, m, d = c_matrix.shape
     
     x_box = width/float(m)
     y_box = height/float(n)
@@ -403,7 +407,10 @@ class SvgDocument(object):
     y2 = y1 + height
     
     c_matrix = color_func(c_matrix)
-            
+    
+    #print c_matrix.shape
+    #print c_matrix[:5,:5]
+                
     self.rect((x1, y1, x2, y2), color=line_color, fill=bg_color)
     
     self.image(x1, y1, width, height, c_matrix)
@@ -418,7 +425,7 @@ class SvgDocument(object):
         y = y1 + val * y_box
         self.line((x1,y,x2,y), color=grid_color, line_width=line_width)
     
-    y3 = y2 + font_size
+    y3 = y2 + font_size/2
     x3 = x1 - font_size/2
     
     if x_labels:
@@ -432,10 +439,10 @@ class SvgDocument(object):
         
         x = min(float(m), max(0.0, x))
         
-        x = x1 + +x_box/2.0 + x * x_box
+        x = x1 + x_box/2.0 + x * x_box
         
-        if rotate_large_labels and (len(t) > 4):
-          self.text(t, (x, y2), anchor='start', size=font_size/2, bold=False, font=font, color=line_color, angle=90, vert_align=None)
+        if rotate_large_labels: #  and (len(t) > 3):
+          self.text(t, (x-font_size/4, y3), anchor='start', size=font_size-2, bold=False, font=font, color=line_color, angle=90, vert_align=None)
         
         else:
           self.text(t, (x, y3), anchor='middle', size=font_size-2, bold=False, font=font, color=line_color, angle=None, vert_align=None)
@@ -454,8 +461,8 @@ class SvgDocument(object):
         y = min(float(n), max(0.0, y))
         y = y1 + y_box/2.0 + y * y_box
         
-        if rotate_large_labels and (len(t) > 4):
-          self.text(t, (x3, y), anchor='end', size=font_size/2, bold=False, font=font, color=line_color, angle=None, vert_align=None)
+        if rotate_large_labels:#  and (len(t) > 3):
+          self.text(t, (x3, y+font_size/4), anchor='end', size=font_size-2, bold=False, font=font, color=line_color, angle=None, vert_align=None)
         
         else:
           self.text(t, (x3, y), anchor='middle', size=font_size-2, bold=False, font=font, color=line_color, angle=270, vert_align=None)
@@ -466,17 +473,17 @@ class SvgDocument(object):
       x = m/2.0
       x = x1 + x * x_box
       
+      y3 += pad 
       self.text(x_axis_label, (x, y3), anchor='middle', size=font_size, bold=False, font=font, color=line_color, angle=None, vert_align=None)
     
-      y3 += pad 
 
     if y_axis_label:
       y = n/2.0
       y = y1 + y * y_box
     
+      x3 -= pad 
       self.text(y_axis_label, (x3, y), anchor='middle', size=font_size, bold=False, font=font, color=line_color, angle=270, vert_align=None)
     
-      x3 += pad 
          
          
          

@@ -41,14 +41,13 @@ import os, sys
 
 from scipy.stats import norm
 from math import ceil
+from collections import defaultdict
 from NucSvg import SvgDocument
 
 PROG_NAME = 'nuc_contact_map'
-VERSION = '1.0.1'
+VERSION = '1.1.0'
 DESCRIPTION = 'Chromatin contact (NCC format) Hi-C contact map display module for Nuc3D and NucTools'
-
-# TBC:
-# - ambiguity filter
+DEFAULT_BIN_SIZE = 5 # Megabases
 
 def info(msg, prefix='INFO'):
 
@@ -66,60 +65,59 @@ def fatal(msg, prefix='%s FAILURE' % PROG_NAME):
   sys.exit(0)
 
 
-def _color_func_white(matrix, color):
+def _color_func(matrix, colors, zero_color):
   
-  n, m = matrix.shape
+  n, m, d = matrix.shape
+    
   color_matrix = np.zeros((n, m, 3), float)
-  color = np.array(color)
-  rgb_0 = np.array([255.0, 255.0, 255.0])
-  rgb_b = np.array([0.0, 0.0, 0.0])  
+  colors = np.array(colors)
+  rgb_0 = np.array(zero_color) 
+  
+  base_colors = 0.5 * colors
+  
+  for k in range(d):
+    base_colors[k] += 0.5 * rgb_0
+  
+  counts = np.zeros((n, m), int)
   
   for i in range(n):
     for j in range(m):
-      f = matrix[i,j]
-      
-      if f > 0:
-        g = 1.0 - f
-        color_matrix[i,j] = (g * color) + (f * rgb_b)
-         
-      else:
+      l = 0.0
+    
+      for k in range(d):
+        f = matrix[i,j,k]
+        if f > 0:
+          g = 1.0 - f
+          color_matrix[i,j] += (f * colors[k]) + (g * base_colors[k])
+          l += 1.0
+          break
+          
+      if l == 0.0:
         color_matrix[i,j] = rgb_0
-
+      
+      else:
+        color_matrix[i,j] /= l
+      
   color_matrix = np.clip(color_matrix, 0, 255)
   color_matrix = np.array(color_matrix, dtype=np.uint8)
-
-  return color_matrix
-
-
-def _color_func_black(matrix, color):
   
-  n, m = matrix.shape
-  color_matrix = np.zeros((n, m, 3), float)
-  color = np.array(color)
-  rgb_0 = np.array([0.0, 0.0, 0.0])
-  rgb_b = np.array([255.0, 255.0, 255.0])
-  
-  for i in range(n):
-    for j in range(m):
-      f = matrix[i,j]
-      
-      if f > 0:
-        g = 1.0 - f
-        color_matrix[i,j] = (g * color) + (f * rgb_b)
-         
-      else:
-        color_matrix[i,j] = rgb_0
-
-  color_matrix = np.clip(color_matrix, 0, 255)
-  color_matrix = np.array(color_matrix, dtype=np.uint8)
-
   return color_matrix
+  
+
+def _color_func_white(matrix, colors):
+  
+  return _color_func(matrix, colors, [255.0, 255.0, 255.0])
+  
+
+def _color_func_black(matrix, colors):
+  
+   return _color_func(matrix, colors, [0.0, 0.0, 0.0])
 
 
 def _get_trans_dev(trans_counts):
 
   cp = float(len(trans_counts))
-
+  
   vals = np.array(trans_counts.values(), float)
   
   if not len(vals):
@@ -142,41 +140,94 @@ def _get_trans_dev(trans_counts):
     score_cat = '2N'
   elif dev < 0.76:
     score_cat = '1/2N'
-  elif dev < 0.90:
+  elif dev < 0.95:
     score_cat = '1N'
   else:
     score_cat = '?'
-  
-  #n1 = norm.pdf(dev, 0.81, 0.025)
-  #n2 = norm.pdf(dev, 0.70, 0.020)
-  #n4 = norm.pdf(dev, 0.55, 0.015)
-  
+
   return dev, score_cat
+
+def _get_num_isolated(positions, threshold=500000):
+  
+  num_isolated = 0
+  bin_offsets = ((-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1))
+  
+  idx = defaultdict(list)
+  
+  for i, (p_a, p_b, ag) in enumerate(positions):
+    idx[(p_a/threshold, p_b/threshold)].append(i)
+ 
+  for key in idx:
+    if len(idx[key]) == 1:
+      pA, pB, ag = positions[idx[key][0]]
+      b1, b2 = key
+ 
+      for j, k in bin_offsets:
+        key2 = (b1+j, b2+k)
+ 
+        if key2 in idx:
+          for i2 in idx[key2]:
+            pC, pD, ag2 = positions[i2]
+ 
+            if abs(pC-pA) < threshold and abs(pD-pB) < threshold:
+              break
+
+            elif abs(pD-pA) < threshold and abs(pC-pB) < threshold:
+              break
+ 
+          else:
+            continue
+ 
+          break
+ 
+      else:
+        num_isolated += 1
+
+  return num_isolated
   
 
-def _get_num_isolated(positions, threshold=500000, pos_err=100):
-                  
+def _get_num_isolated_groups(positions, threshold=500000, pos_err=100):
+  
   num_isolated = 0
   pos = list(enumerate(positions))
   found = [0] * len(positions)
   
-  for i, (pA, pB) in pos:
-    if found[i]:
+  group_dict = defaultdict(list)
+  for p_a, p_b, ag in positions:
+    group_dict[ag].append((p_a, p_b))
+  
+  groups = sorted(group_dict)
+  
+  for i, ag_a in enumerate(groups):
+    if found[i]: # Already close to something else
       continue
     
     close = 0
-    for j, (pC, pD) in pos:
+    for j, ag_b in enumerate(groups):
       if j == i:
         continue
-
-      if (pos_err < abs(pC-pA) < threshold) and (pos_err < abs(pD-pB) < threshold):
-        close = 1
-        found[j] = 1
+            
+      for p_a, p_b in group_dict[ag_a]:
+        for p_c, p_d in group_dict[ag_b]:
+          if (pos_err < abs(p_c-p_a) < threshold) and (pos_err < abs(p_d-p_b) < threshold):
+            close = 1
+            found[j] = 1
+            break
  
-      elif (pos_err < abs(pD-pA) < threshold) and (pos_err < abs(pC-pB) < threshold):
-        close = 1
-        found[j] = 1
-    
+          elif (pos_err < abs(p_d-p_a) < threshold) and (pos_err < abs(p_c-p_b) < threshold):
+            close = 1
+            found[j] = 1
+            break
+         
+        else:
+          continue
+          
+        break  
+      
+      if close:
+        break
+      
+        
     if not close:
       num_isolated += 1
   
@@ -196,7 +247,11 @@ def _get_mito_fraction(contacts, min_sep=1e2, sep_range=(10**6.5, 10**7.5)):
     if chr_a != chr_b:
       continue
     
-    points = np.array(contacts[chr_pair])
+    points = np.array(contacts[chr_pair])[:,:2]
+    
+    if len(points) < 3:
+      continue
+    
     d_seps = np.diff(points, axis=1)
     d_seps = d_seps[(d_seps > min_sep).nonzero()]
     
@@ -239,6 +294,7 @@ def load_ncc(ncc_path):
       f_end_b = int(f_end_b)
       start_b = int(start_b)
       end_b  = int(end_b)
+      ambig_group = int(ambig_group)
       
       if chr_a in chromo_limits:
         s, e = chromo_limits[chr_a]
@@ -276,14 +332,21 @@ def load_ncc(ncc_path):
       else:
         p_b = f_start_b
         
-      contact_list.append((p_a, p_b))
+      contact_list.append((p_a, p_b, ambig_group))
 
   return chromo_limits, contacts
   
   
-def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5, black_bg=False, color=None, font=None, font_size=12, line_width=1):
+def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5, black_bg=False, color=None,
+                    color_ambig=None, font=None, font_size=12, line_width=0.2, min_contig_size=None):
     
   bin_size = int(bin_size * 1e6)
+  
+  if min_contig_size:
+    min_contig_size = int(min_contig_size * 1e6)
+  else:
+    min_contig_size = bin_size
+  
   
   if svg_tag == '-':
     svg_path = '-'
@@ -299,21 +362,38 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5,
   if not chromo_limits:
     fatal('No chromosome contact data read')
   
-  # Get sorted chromosomes    
+  # Get sorted chromosomes, ignore small contigs as appropriate    
   chromos = []
+  skipped = []
   for chromo in chromo_limits:
+    s, e = chromo_limits[chromo]
+    
+    if (e-s) < min_contig_size:
+      skipped.append(chromo)
+      continue
+    
     if chromo.upper().startswith('CHR'):
       c = chromo[3:]
     else:
       c = chromo
     
-    try:
-      key = '%09d' % int(c)
-    except ValueError as err:
-      key = c
+    if c.split('.')[-1].upper() in ('A','B'):
+      try:
+        key = ('%09d' % int(c.split('.')[0]), c.split('.')[-1])
+      except ValueError as err:
+        key = (c, c.split('.')[-1],)
+    
+    else:    
+      try:
+        key = '%09d' % int(c)
+      except ValueError as err:
+        key = c
  
     chromos.append((key, chromo))
-   
+  
+  if skipped:
+    info('Skipped {:,} small chromosomes/contigs < {:,} bp'.format(len(skipped), min_contig_size))
+    
   chromos.sort()
   chromos = [x[1] for x in chromos]
   
@@ -332,19 +412,28 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5,
     n += span
     grid.append(n)# At chromosome edge
   
-  grid.pop() # Don't need last edge
+  if grid:
+    grid.pop() # Don't need last edge
   
-  # Fill contact map matrix
-  data = np.zeros((n, n), float)
+  # Fill contact map matrix, last dim is for (un)ambigous
+  data = np.zeros((n, n, 2), float)
   
   if svg_path and svg_path != '-':
     info('Contact map size %d x %d' % (n, n))
   
   trans_counts = {}
-  n_cont  = 0
-  n_cis   = 0
-  n_trans = 0
+
   n_isol  = 0
+  n_pairs = 0
+  
+  groups = defaultdict(int)
+  homolog_groups = set()
+  trans_groups = set()
+  cis_groups = set()
+  
+  for key in contacts:
+    for p_a, p_b, ag in contacts[key]:
+      groups[ag] += 1
   
   for i, chr_1 in enumerate(chromos):
     for chr_2 in chromos[i:]:
@@ -360,42 +449,73 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5,
         if chr_a != chr_b:
           trans_counts[(chr_a, chr_b)] = 0.0
           
-        continue
+        continue     
       
       ni = _get_num_isolated(contact_list)
-      
       s_a, n_a = chromo_offsets[chr_a]
-      s_b, n_b = chromo_offsets[chr_b]
+      s_b, n_b = chromo_offsets[chr_b]      
       
-      for p_a, p_b in contact_list:
+      #print chr_a, chr_b, n_a, n_b
+      
+      for p_a, p_b, ag in contact_list:
+        if chr_a != chr_b:
+          if ('.' in chr_a) and ('.' in chr_b) and (chr_a.split('.')[0] == chr_b.split('.')[0]):
+            homolog_groups.add(ag)
+ 
+          else:
+            trans_groups.add(ag)
+        
+        else:
+          cis_groups.add(ag)
+        
         a = n_a + int((p_a-s_a)/bin_size)
         b = n_b + int((p_b-s_b)/bin_size)
         
-        data[a, b] += 1.0
-        data[b, a] += 1.0      
+        k = 1 if groups[ag] > 1 else 0
+        
+        data[a, b, k] += 1.0
+        data[b, a, k] += 1.0      
       
-      nc = len(contact_list)
-      n_cont += nc
+      n_pr = len(contact_list)  
       n_isol += ni
+      n_pairs += n_pr
       
-      if chr_a == chr_b:
-        n_cis += nc
-      else:
+      if chr_a != chr_b:
         s1, e1 = chromo_limits[chr_a]
         s2, e2 = chromo_limits[chr_b]
-        trans_counts[(chr_a, chr_b)] = (nc - ni)/float((e1-s1) * (e2-s2))
-        n_trans += nc  
+        trans_counts[(chr_a, chr_b)] = (n_pr - ni)/float((e1-s1) * (e2-s2))
+   
+  trans_groups -= homolog_groups
+  cis_groups -= homolog_groups
+  cis_groups -= trans_groups 
   
-  isol_frac = 100.0 * n_isol / float(n_cont or 1)
+  n_ambig = len([x for x in groups.values() if x > 1])
+  n_homolog = len(homolog_groups)
+  n_trans = len(trans_groups)
+  n_cis  = len(cis_groups)
+  
+  n_cont = len(groups)
+  
+  ambig_frac = 100.0 * n_ambig / float(n_cont or 1)
+  
+  isol_frac = 100.0 * n_isol / float(n_pairs or 1)
   
   trans_dev, ploidy = _get_trans_dev(trans_counts)
   
   mito_frac, mito_cat = _get_mito_fraction(contacts)
   
-  stats_text = 'Contacts:{:,d} cis:{:,d} trans:{:,d} ; isolated:{:.2f}% ; ploidy score:{:.2f} ({}) ; mito score:{:.2f} ({})'
-  stats_text = stats_text.format(n_cont, n_cis, n_trans, isol_frac, trans_dev, ploidy, mito_frac, mito_cat)
+  stats_text1 = 'Contacts:{:,d} cis:{:,d} trans:{:,d} homolog:{:,d}; ambig:{:.2f}% ; isolated:{:.2f}%'
+  stats_text1 = stats_text1.format(n_cont, n_cis, n_trans, n_homolog, ambig_frac, isol_frac)
+
+  stats_text2 = 'ploidy score:{:.2f} ({}) ; mito score:{:.2f} ({})'
+  stats_text2 = stats_text2.format(trans_dev, ploidy, mito_frac, mito_cat)
          
-  data = np.log(data+1.0)
+  data = np.log10(data+1.0)
+    
+  data[:,:,0] /= data[:,:,0].max() or 1.0
+  data[:,:,1] /= data[:,:,1].max() or 1.0
+  
+  #data = data ** 0.5
   
   chromo_labels = []
   for chromo in chromos:
@@ -408,27 +528,34 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5,
   
   
   # Make SVG  
-  offset = int(0.1 * n)  
+  offset = 64
   
   svg_doc = SvgDocument()  
   
+  if color:
+    color = svg_doc._hex_to_rgb(color)
+ 
+  if color_ambig:
+    color_ambig = svg_doc._hex_to_rgb(color_ambig)
   
   if black_bg:
-    if color:
-      color = svg_doc._hex_to_rgb(color)
-    else:
-      color = [55.0, 55.0, 110.0]
+    if not color:
+      color = [0.0, 200.0, 255.0]
+    if not color_ambig:
+      color_ambig = [100.0, 0.0, 0.0]
     
-    color_func = lambda x, c=color: _color_func_black(x, c)
+    colors = [color, color_ambig]
+    color_func = lambda x, c=colors: _color_func_black(x, c)
     grid_color = '#303030'
     
   else:
-    if color:
-      color = svg_doc._hex_to_rgb(color)
-    else:
-      color = [200.0, 200.0, 255.0]
-   
-    color_func = lambda x, c=color: _color_func_white(x, c)
+    if not color:
+      color = [0.0, 0.0, 128.0]     
+    if not color_ambig:
+      color_ambig = [180.0, 180.0, 0.0]
+    
+    colors = [color, color_ambig]
+    color_func = lambda x, c=colors: _color_func_white(x, c)
     grid_color = '#C0C0C0'
   
   w = svg_width - 2 * offset
@@ -440,16 +567,31 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=700, bin_size=5,
                          plot_offset=(offset, offset), color_func=color_func,
                          value_range=None, scale_func=None)
   
-  svg_doc.text(os.path.basename(ncc_path), (offset, offset/2))
+  svg_doc.text(os.path.basename(ncc_path), (offset, 20), size=18)
 
+  svg_doc.text(stats_text1, (offset, 38), size=12)
 
-  svg_doc.text(stats_text, (offset, offset-8), size=12)
-
+  svg_doc.text(stats_text2, (offset, 52), size=12)
+  
+  if n_ambig:
+    x0 = offset + 0.7 * w
+    y0 = 52
+    x1 = x0 + 8
+    y1 = y0 - 8
+    svg_doc.rect([x0, y0, x1, y1], color='black', fill='#%02X%02X%02X' % tuple(color))
+    svg_doc.text('Unambiguous', (x1+4, y0), size=12)
+   
+    x0 = offset + 0.87 * w
+    x1 = x0 + 8
+    svg_doc.rect([x0, y0, x1, y1], color='black', fill='#%02X%02X%02X' % tuple(color_ambig))
+    svg_doc.text('Ambiguous', (x1+4, y0), size=12)
+  
   if svg_path == '-':
     print(svg_doc.svg(svg_width, svg_width))
   
   elif svg_path:
     svg_doc.write_file(svg_path, svg_width, svg_width)
+    info('Saved contact map to %s' % svg_path)
 
   else:
     return svg_doc.svg(svg_width, svg_width)
@@ -464,23 +606,29 @@ if __name__ == '__main__':
   arg_parse = ArgumentParser(prog=PROG_NAME, description=DESCRIPTION,
                              epilog=epilog, prefix_chars='-', add_help=True)
 
-  arg_parse.add_argument('-i', metavar='NCC_FILE', nargs='+',
+  arg_parse.add_argument(metavar='NCC_FILE', nargs='+', dest='i',
                          help='Input NCC format chromatin contact file(s). Wildcards accepted')
 
   arg_parse.add_argument('-o', metavar='SVG_FILE_TAG', default='_contact_map',
                          help='Optional name tag to put at end of SVG format contact map file. Use "-" to print SVG to stdout rather than make a file. Default: "_contact_map"')
 
-  arg_parse.add_argument('-w', default=700, metavar='SVG_WIDTH', type=int,
+  arg_parse.add_argument('-w', default=800, metavar='SVG_WIDTH', type=int,
                          help='SVG document width')
 
-  arg_parse.add_argument('-s', default=5, metavar='BIN_SIZE', type=int,
-                         help='Sequence region size represented by each small square (the resolution) in megabases. Default is 5 kb')
+  arg_parse.add_argument('-s', default=DEFAULT_BIN_SIZE, metavar='BIN_SIZE', type=int,
+                         help='Sequence region size represented by each small square (the resolution) in megabases. Default is %d Mb' % DEFAULT_BIN_SIZE)
+
+  arg_parse.add_argument('-m', default=0.0, metavar='MIN_CONTIG_SIZE', type=float,
+                         help='The minimum chromosome/contig sequence length in Megabases for inclusion. Default is the bin size (see -s option)')
 
   arg_parse.add_argument('-b', default=False, action='store_true',
                          help='Specifies that the contact map should have a black background (default is white)')
 
   arg_parse.add_argument('-c', nargs=1, metavar='RGB_COLOR',
                          help='Optional main color for the contact points as a 24-bit hexidecimal RBG code e.g. "#0080FF" (with quotes)')
+
+  arg_parse.add_argument('-ca', nargs=1, metavar='RGB_COLOR',
+                         help='Optional color for ambigous contact points as a 24-bit hexidecimal RBG code e.g. "#FF0000" (with quotes)')
 
   args = vars(arg_parse.parse_args())
   
@@ -490,6 +638,8 @@ if __name__ == '__main__':
   bin_size  = args['s']
   black_bg  = args['b']
   color     = args['c']
+  color_a   = args['ca']
+  min_contig_size = args['m']
   
   if not ncc_paths:
     import sys
@@ -503,5 +653,5 @@ if __name__ == '__main__':
     if not os.path.exists(ncc_path):
       fatal('NCC file could not be found at "{}"'.format(ncc_path))
   
-    nuc_contact_map(ncc_path, svg_tag, svg_width, bin_size, black_bg, color)
+    nuc_contact_map(ncc_path, svg_tag, svg_width, bin_size, black_bg, color, color_a, min_contig_size=min_contig_size)
 
