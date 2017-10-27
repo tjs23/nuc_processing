@@ -1549,10 +1549,6 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   move(clipped_file_temp, clipped_file)
   
   return clipped_file
-
-
-def get_hybrid_unallocatable():
-
   
 
 def get_chromo_re_fragments(fasta_file_objs, contig, sequence, re_site, cut_offset, mappability_length=75):
