@@ -165,61 +165,101 @@ For example two lines could be:
 Command line options for nuc_process
 ------------------------------------
 
-usage: nuc_process [-h] [-i FASTQ_FILE FASTQ_FILE] [-g GENOME_FILE]
-                   [-re1 ENZYME] [-re2 ENZYME] [-s SIZE_RANGE] [-n CPU_COUNT]
-                   [-r COUNT] [-o NCC_FILE] [-oa NCC_FILE] [-or REPORT_FILE]
-                   [-b EXE_FILE] [-q SCHEME] [-m] [-p] [-x]
-                   [-f FASTA_FILES [FASTA_FILES ...]] [-a] [-k] [-sam]
-                   [-l SEQUENCE] [-z] [-v] [-u]
+usage: nuc_process [-h] [-i FASTQ_FILE [FASTQ_FILE ...]] [-g GENOME_FILE]
+                   [-g2 GENOME_FILE_2] [-re1 ENZYME] [-re2 ENZYME]
+                   [-s SIZE_RANGE] [-n CPU_COUNT] [-r COUNT] [-o NCC_FILE]
+                   [-oa NCC_FILE] [-or REPORT_FILE] [-b EXE_FILE] [-q SCHEME]
+                   [-qm MIN_QUALITY] [-m] [-p]
+                   [-pt PAIRED_READ_TAGS PAIRED_READ_TAGS] [-x]
+                   [-f FASTA_FILES [FASTA_FILES ...]]
+                   [-f2 FASTA_FILES_2 [FASTA_FILES_2 ...]] [-a] [-k] [-sam]
+                   [-l SEQUENCE] [-z] [-v] [-hc HOM_CHROMO_TSV_FILE] [-u]
+                   [-c GENOME_COPIES]
 
 Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools
 
 optional arguments:
+
   -h, --help            show this help message and exit
-  -i FASTQ_FILE FASTQ_FILE
-                        Input paired-read FASTQ files to process (accepts
-                        Wild-cards that match two files)
-  -g GENOME_FILE        Genome index file to map sequence reads to. A new
-                        index will be created with this name if the index is
+  -i FASTQ_FILE [FASTQ_FILE ...]
+                        Input paired-read FASTQ files to process. Accepts
+                        wildcards that match paired files. If more than two
+                        files are input, processing will be run in batch mode
+                        using the same parameters.
+  -g GENOME_FILE        Location of genome index files to map sequence reads
+                        to without any file extensions like ".1.b2" etc. A new
+                        index will be created with the name if the index is
                         missing and genome FASTA files are specified
+  -g2 GENOME_FILE_2     Location of secondary genome index files for hybrid
+                        genomes. A new index will be created with the name if
+                        the index is missing and genome FASTA files are
+                        specified
   -re1 ENZYME           Primary restriction enzyme (for ligation junctions).
-                        Default: MboI. Available: AluI, BglII, MboI
+                        Default: MboI. Available: AluI, BglII, DpnII, HindIII,
+                        MboI
   -re2 ENZYME           Secondary restriction enzyme (if used). Available:
-                        AluI, BglII, MboI
+                        AluI, BglII, DpnII, HindIII, MboI
   -s SIZE_RANGE         Allowed range of sequenced molecule sizes, e.g.
                         "150-1000", "100,800" or "200" (no maximum)
   -n CPU_COUNT          Number of CPU cores to use in parallel
   -r COUNT              Minimum number of sequencing repeats required to
                         support a contact
   -o NCC_FILE           Optional output name for NCC format chromosome contact
-                        file
-  -oa NCC_FILE          Optional output name for ambiguous contact NCC file
-  -or REPORT_FILE       Optional output name for HTML report file
+                        file. This option will be ignored if more than two
+                        paired FASTA files are input (i.e. for batch mode);
+                        automated naming will be used instead.
+  -oa NCC_FILE          Optional output name for ambiguous contact NCC file.
+                        This option will be ignored if more than two paired
+                        FASTA files are input (i.e. for batch mode); automated
+                        naming will be used instead.
+  -or REPORT_FILE       Optional output name for SVG format report file. This
+                        option will be ignored if more than two paired FASTA
+                        files are input (i.e. for batch mode); automated
+                        naming will be used instead.
   -b EXE_FILE           Path to bowtie2 (read aligner) executable (will be
                         searched for if not specified)
   -q SCHEME             Use a specific FASTQ quality scheme (normally not set
-                        and deduced automatically). Available: integer,
-                        phred33, phred64, solexa
+                        and deduced automatically). Available: phred33,
+                        phred64, solexa
+  -qm MIN_QUALITY       Minimum acceptable FASTQ quality score in range 0-40
+                        for clipping 3' end of reads. Default: 10
   -m                    Force a re-mapping of genome restriction enzyme sites
                         (otherwise cached values will be used if present)
-  -p                    The input data is population Hi-C; single-cell
-                        processing steps are avoided
+  -p                    The input data is multi-cell/population Hi-C; single-
+                        cell processing steps are avoided
+  -pt PAIRED_READ_TAGS PAIRED_READ_TAGS
+                        When more than two FASTQ files are input (batch mode),
+                        the subtrings/tags which differ between paired FASTQ
+                        file paths. Default: r_1 r_2
   -x, --reindex         Force a re-indexing of the genome (given appropriate
                         FASTA files)
   -f FASTA_FILES [FASTA_FILES ...]
-                        Specify genome FASTA files for index building (accepts
-                        Wild-cards)
+                        Specify genome FASTA files for genome index building
+                        (accepts wildcards)
+  -f2 FASTA_FILES_2 [FASTA_FILES_2 ...]
+                        A second set of genome FASTA files for building a
+                        second genome index when using hybrid strain cells
+                        (accepts wildcards).
   -a                    Whether to report ambiguously mapped contacts
   -k                    Keep any intermediate files (e.g. clipped FASTQ etc).
-                        Note initial, primary SAM files are always kept.
   -sam                  Write paired contacts files to SAM format
   -l SEQUENCE           Seek a specific ligation junction sequence (otherwise
                         this is guessed from the primary restriction enzyme)
   -z                    GZIP compress any output FASTQ files
   -v, --verbose         Display verbose messages to report progress
+  -hc HOM_CHROMO_TSV_FILE, --homologous_chromos HOM_CHROMO_TSV_FILE
+                        File path specifying whitespace-separated pairs of
+                        homologous chromosome names (to match first word in
+                        header lines of genome sequence FASTQ files) and
+                        corresponding pair name (e.g. "chrX"). Required for
+                        hybrid strain analysis. See -g2 option.
   -u                    Whether to only accept uniquely mapping genome
                         positions and not attempt to resolve certain classes
-                        of ambiguous mapping.
+                        of ambiguous mapping where a single perfect match is
+                        found.
+  -c GENOME_COPIES      Number of whole-genome copies, e.g. for S2 phase;
+                        Default 1 unless homologous chromosomes (-hc) are
+                        specified for hybrid genomes.
 
 Note enzymes.conf can be edited to add further restriction enzyme cut-site
 definitions. 

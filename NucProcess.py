@@ -1549,6 +1549,10 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   move(clipped_file_temp, clipped_file)
   
   return clipped_file
+
+
+def get_hybrid_unallocatable():
+
   
 
 def get_chromo_re_fragments(fasta_file_objs, contig, sequence, re_site, cut_offset, mappability_length=75):
@@ -3028,7 +3032,7 @@ if __name__ == '__main__':
                          help='Location of genome index files to map sequence reads to without any file extensions like ".1.b2" etc. A new index will be created with the name if the index is missing and genome FASTA files are specified')
 
   arg_parse.add_argument('-g2', default=None, metavar='GENOME_FILE_2',
-                         help='Location of a second genome index files for hybrid genomes. A new index will be created with the name if the index is missing and genome FASTA files are specified')
+                         help='Location of secondary genome index files for hybrid genomes. A new index will be created with the name if the index is missing and genome FASTA files are specified')
 
   arg_parse.add_argument('-re1', default='MboI', choices=res, metavar='ENZYME',
                          help='Primary restriction enzyme (for ligation junctions). Default: MboI. ' + avail_re)
@@ -3085,7 +3089,7 @@ if __name__ == '__main__':
                          help='Whether to report ambiguously mapped contacts')
                         
   arg_parse.add_argument('-k', default=False, action='store_true',
-                         help='Keep any intermediate files (e.g. clipped FASTQ etc). Note initial, primary SAM files are always kept.')
+                         help='Keep any intermediate files (e.g. clipped FASTQ etc).')
 
   arg_parse.add_argument('-sam', default=False, action='store_true',
                          help='Write paired contacts files to SAM format')
@@ -3100,10 +3104,10 @@ if __name__ == '__main__':
                          help='Display verbose messages to report progress')    
 
   arg_parse.add_argument('-hc', '--homologous_chromos', dest='hc', metavar='HOM_CHROMO_TSV_FILE',
-                         help='File path specifying whitespace-separated pairs of homologous chromosome names (to match first word in header lines of genome sequence FASTQ files). Specifies that the sequencing data is a hybrid of different strains; requires a genome build for each strain.')    
+                         help='File path specifying whitespace-separated pairs of homologous chromosome names (to match first word in header lines of genome sequence FASTQ files) and corresponding pair name (e.g. "chrX"). Required forhybrid strain analysis. See -g2 option.')    
  
   arg_parse.add_argument('-u', default=False, action='store_true',
-                         help='Whether to only accept uniquely mapping genome positions and not attempt to resolve certain classes of ambiguous mapping.')
+                         help='Whether to only accept uniquely mapping genome positions and not attempt to resolve certain classes of ambiguous mapping where a single perfect match is found,')
 
   arg_parse.add_argument('-c', default=0, metavar='GENOME_COPIES',
                          type=int, help='Number of whole-genome copies, e.g. for S2 phase; Default 1 unless homologous chromosomes (-hc) are specified for hybrid genomes.')
