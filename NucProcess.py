@@ -1113,9 +1113,9 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, unpair_p
   paired_ncc_file_name_temp = paired_ncc_file_name + TEMP_EXT
   ambig_ncc_file_name_temp = ambig_ncc_file_name + TEMP_EXT
   
-  #1 if INTERRUPTED and os.path.exists(paired_ncc_file_name) and os.path.exists(ambig_ncc_file_name) \
-  #1    and not os.path.exists(paired_ncc_file_name_temp) and not os.path.exists(ambig_ncc_file_name_temp):
-  #1   return paired_ncc_file_name, ambig_ncc_file_name
+  if INTERRUPTED and os.path.exists(paired_ncc_file_name) and os.path.exists(ambig_ncc_file_name) \
+      and not os.path.exists(paired_ncc_file_name_temp) and not os.path.exists(ambig_ncc_file_name_temp):
+    return paired_ncc_file_name, ambig_ncc_file_name
   
   # Load a list of unpairable hybrid segments
   
@@ -3101,8 +3101,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
   LOG_FILE_PATH = file_root + '.log'
   STAT_FILE_PATH = file_root + '_stats.json'
   VERBOSE = bool(verbose)
-  #1 INTERRUPTED = is_interrupted_job()
-  INTERRUPTED = True
+  INTERRUPTED = is_interrupted_job()
   
   # Check for no upper fragment size limit
   if len(sizes) == 1:
@@ -3186,9 +3185,9 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
     sam_file3 = map_reads(clipped_file1, genome_index2, align_exe, num_cpu, ambig, qual_scheme, 3)
     sam_file4 = map_reads(clipped_file2, genome_index2, align_exe, num_cpu, ambig, qual_scheme, 4)
   
-  #1 if not keep_files:
-  #1   os.unlink(clipped_file1)
-  #1   os.unlink(clipped_file2)
+  if not keep_files:
+    os.unlink(clipped_file1)
+    os.unlink(clipped_file2)
  
   info('Pairing FASTQ reads...')
   
@@ -3291,13 +3290,13 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
       if ambig:
         os.unlink(ambig_clean_ncc_file)
   
-  #1 if not keep_files:
-  #1   os.unlink(sam_file1) 
-  #1   os.unlink(sam_file2)
-  #1 
-  #1   if genome_index2:
-  #1     os.unlink(sam_file3) 
-  #1     os.unlink(sam_file4)
+  if not keep_files:
+    os.unlink(sam_file1) 
+    os.unlink(sam_file2)
+  
+    if genome_index2:
+      os.unlink(sam_file3) 
+      os.unlink(sam_file4)
  
   final_stats = get_ncc_stats(out_file, hom_chromo_dict)
   log_report('final', final_stats)
