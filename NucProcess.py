@@ -46,7 +46,7 @@ from NucSvg import SvgDocument
 from NucContactMap import nuc_contact_map
 
 PROG_NAME = 'nuc_process'
-VERSION = '1.1.0'
+VERSION = '1.1.1'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
 RE_SITES = {'MboI'   :'^GATC_',
@@ -496,18 +496,15 @@ def remove_redundancy(ncc_file, min_repeats=2, keep_files=True, zip_files=False,
   sort_file_obj = open(sort_file_name, 'r')
   out_file_obj = open(out_file_name_temp, 'w')
   
-  if keep_files:
-    uniq_file_name = tag_file_name(ncc_file, 'unique_read')
-    uniq_file_obj = open(uniq_file_name, 'w')
-  
   n_unique = 0
   n_redundant = 0
   n_pairs = 0
   mean_redundancy = 0.0
   
+  # chr_a, f_start_a, f_end_a, start_a, end_a, strand_a, chr_b, f_start_b, f_end_b, start_b, end_b, strand_b, ambig_group, pair_id, swap_pair = line.split()
   # Compare using strand information given we want to know which fragment END is used
   if use_re_fragments:
-    ncc_idx = (0,1,5,6,7,11) # Compare on RE fragment
+    ncc_idx = (0,1,5,6,7,11) # Compare on RE fragment: chr_a, f_start_a, strand_a, chr_b, f_start_b, strand_b
   else:
     ncc_idx = (0,3,5,6,9,11) # Compare on read starts - does not consider ends as these can vary in read replicates
   
@@ -518,83 +515,123 @@ def remove_redundancy(ncc_file, min_repeats=2, keep_files=True, zip_files=False,
   for line in sort_file_obj:
     ambig_group = line.split()[12]
     ambig_sizes[ambig_group] += 1
-  
     nc += 1
+
+  # Remove repeats
   
+  excluded_groups = set()
+  group_reps = defaultdict(int)
   sort_file_obj.seek(0)
-  line_prev = sort_file_obj.readline()
+  line_keep = sort_file_obj.readline()
+  write = out_file_obj.write
     
-  if line_prev: # Could be empty
-    line_data = line_prev.split()
+  if line_keep: # Could be empty
+    line_data = line_keep.split()
  
     n = 1
-    prev = [line_data[i] for i in ncc_idx]
-    len_prev = abs(int(line_data[4]) - int(line_data[3])) + abs(int(line_data[10]) - int(line_data[9]))
-    n_ambig_prev = ambig_sizes[line_data[12]]
+    keep_data = [line_data[i] for i in ncc_idx]
+    len_keep = abs(int(line_data[4]) - int(line_data[3])) + abs(int(line_data[10]) - int(line_data[9]))
+    ambig_keep = line_data[12]
+    n_ambig_keep = ambig_sizes[ambig_keep]
     
     # Remove redundancy, keeping the least ambigous or else the longest
     for line in sort_file_obj:
       n_pairs += 1
       line_data = line.split()
-      curr = [line_data[i] for i in ncc_idx]
+      curr_data = [line_data[i] for i in ncc_idx]
       len_curr = abs(int(line_data[4]) - int(line_data[3])) + abs(int(line_data[10]) - int(line_data[9]))
-      n_ambig_curr = ambig_sizes[line_data[12]]
+      ambig_curr = line_data[12]
+      n_ambig_curr = ambig_sizes[ambig_curr]
  
-      if curr == prev:
+      if curr_data == keep_data:
         n += 1
         
-        if n_ambig_curr == n_ambig_prev: # Equally ambiguous
-          if len_curr > len_prev: # This, longer repeat is better
-            len_prev = len_curr
-            line_prev = line
+        if n_ambig_curr == n_ambig_keep: # Equally ambiguous
+          if len_curr > len_keep: # This, longer repeat is better
+            excluded_groups.add(ambig_keep) # Remove prev kept group
+            len_keep = len_curr
+            line_keep = line
+            n_ambig_keep = n_ambig_curr
+            ambig_keep = ambig_curr
+         
+          else: # This repeat is worse
+            excluded_groups.add(ambig_curr) # Remove this group
+          
+        elif n_ambig_curr < n_ambig_keep: # Better to keep this less ambiguous repeat
+          excluded_groups.add(ambig_keep) # Remove prev kept group
+          len_keep = len_curr
+          line_keep = line
+          n_ambig_keep = n_ambig_curr
+          ambig_keep = ambig_curr
         
-        elif n_ambig_curr < n_ambig_prev: # Better to keep this less ambiguous repeat
-          len_prev = len_curr
-          line_prev = line
-
+        else: # Keep the old one
+          excluded_groups.add(ambig_curr) # Remove this group
+          
         continue
  
       else: # Not a repeat, write previous
- 
-        if n < min_repeats:
-          if keep_files:
-            uniq_file_obj.write(line_prev)
-          n_unique += 1
-        else:
-          out_file_obj.write(line_prev)
-          n_redundant += 1
- 
+        group_reps[ambig_keep] += n
+        write(line_keep)
         mean_redundancy += n
  
-        line_prev = line
-        len_prev = len_curr
-        prev = curr
+        line_keep = line
+        len_keep = len_curr
+        keep_data = curr_data
+        ambig_keep = ambig_curr
+        n_ambig_keep = n_ambig_curr
         n = 1
  
     # Write remaining
-    if n < min_repeats:
-      if keep_files:
-        uniq_file_obj.write(line_prev)
-    else:
-      out_file_obj.write(line_prev)
+    write(line_keep)
  
   out_file_obj.close()
 
   if keep_files:
-    uniq_file_obj.close()
-    
     if zip_files:
       compress_file(ncc_file)
   
   else:
     os.unlink(ncc_file)
   
-  os.unlink(sort_file_name) # Remove temp file
+  os.unlink(sort_file_name) # Remove temp sorted file
+  
+  # Remove excluded ambig groups and non-supported
+  
+  if keep_files:
+    uniq_file_name = tag_file_name(ncc_file, 'unique_read')
+    uniq_file_obj = open(uniq_file_name, 'w')
+    uniq_write = uniq_file_name.write
+  
+  n_excluded = 0
+  out_file_obj = open(out_file_name, 'w')
+  with open(out_file_name_temp, 'r') as temp_file_obj:
+    write = out_file_obj.write
+    
+    for line in temp_file_obj:
+      ambig = line.split()[12]
+      
+      if ambig in excluded_groups:
+        n_excluded += 1
+      
+      elif group_reps[ambig]/float(ambig_sizes[ambig]) < min_repeats:
+        if keep_files:
+          uniq_write(line)
+        n_unique += 1
+        
+      else:
+        write(line)
+        n_redundant += 1
+
+  out_file_obj.close()
+  
+  if keep_files:
+    uniq_file_obj.close()
   
   n = n_unique + n_redundant
   mean_redundancy /= float(n) or 1.0
   
   stats = [('input_pairs', n_pairs),
+           ('defunct_ambig_group', (n_excluded, n)),
            ('unique', (n_unique, n)),
            ('redundant', (n_redundant, n)),
            ('mean_redundancy', mean_redundancy)]
@@ -602,7 +639,7 @@ def remove_redundancy(ncc_file, min_repeats=2, keep_files=True, zip_files=False,
   stat_key = 'dup_ambig' if ambig else 'dup'  
   log_report(stat_key, stats)
   
-  move(out_file_name_temp, out_file_name)
+  os.unlink(out_file_name_temp)
   
   return out_file_name
   
@@ -648,7 +685,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
   
   for tag in ('accepted', 'too_small', 'too_big', 'circular_re1', 'internal_re1',
               'internal_re2', 'no_end_re2', 'overhang_re1', 'too_close',
-              'adjacent_re1', 'unknown_contig', 'excluded_group_member'):
+              'adjacent_re1', 'unknown_contig', 'excluded_ambig_group'):
     counts[tag] = 0
     
     if keep_files or (tag == 'accepted'):
@@ -674,9 +711,11 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
     
     if keep_files or (tag == 'accepted'):
       write_funcs[tag](line) 
+  
+    
     
   in_file_obj = open_file_r(pair_ncc_file)
-  exclude_ambig_group = None
+  excluded_groups = set()
 
   for line in in_file_obj:
     # NCC file starts are always the start of the READ, not what was in the BAM file
@@ -696,17 +735,6 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
     end_b = int(end_b)
     
     ambig_group = int(ambig_group)
-    
-    # Remove a whole ambiguity group if one possibilty is removed and it could be the real contact
-    # - Does not exlude whole group if only the size is wrong (presumably only correct sized frags would be detected)
-    
-    if exclude_ambig_group:
-      if exclude_ambig_group == ambig_group: # Whole group excluded for prior reason
-        count_write('excluded_group_member', line)
-        continue
-      
-      else:
-        exclude_ambig_group = None
     
     # Convert contig code names to proper chromosome names where possible
     chr_a = chromo_name_dict1.get(chr_a, chr_a)
@@ -774,7 +802,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
       # Internal RE2 not necessarily a problem if reads are in different RE1 fragements, e.g. potential ligation junction within
       if re2_a_idx == re2_b_idx and chr_a == chr_b and re1_a_idx == re1_b_idx:
         count_write('internal_re2', line)
-        exclude_ambig_group = ambig_group # The real pair could definitely be a duff one
+        excluded_groups.add(ambig_group) # The real pair could definitely be a duff one
         continue
  
       re2_a_start, re2_a_end, mappability_re2_a = re2_frag_dict[chr_a][re2_a_idx] 
@@ -797,12 +825,12 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
       
       if abs(delta_re2_a) > re2_tolerance:
         count_write('no_end_re2', line)
-        exclude_ambig_group = ambig_group # The real pair could definitely be a duff one
+        excluded_groups.add(ambig_group) # The real pair could definitely be a duff one
         continue
 
       if abs(delta_re2_b) > re2_tolerance:
         count_write('no_end_re2', line)
-        exclude_ambig_group = ambig_group # The real pair could definitely be a duff one
+        excluded_groups.add(ambig_group) # The real pair could definitely be a duff one
         continue
    
     if chr_a == chr_b:
@@ -811,11 +839,13 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
         if start_a < start_b:
           if pos_strand_b and not pos_strand_a: # Reads go outwards in same frag: <-A B->
             count_write('circular_re1', line)
+            excluded_groups.add(ambig_group)
             continue
           
         else:
           if pos_strand_a and not pos_strand_b: # Reads go outwards in same frag: <-B A->
             count_write('circular_re1', line)
+            excluded_groups.add(ambig_group)
             continue      
     
         if (p1 <  re1_a_start < p2) or (p1 <  re1_a_end < p2): # Read A overshoots Re1 fragment end
@@ -827,11 +857,11 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
         else:
           count_write('internal_re1', line)
         
-        exclude_ambig_group = ambig_group # The real pair could definitely be a duff one
+        excluded_groups.add(ambig_group) # The real pair could definitely be a duff one
         
       elif abs(re1_a_idx-re1_b_idx) < 2: 
         count_write('adjacent_re1', line) # Mostly re-ligation
-        exclude_ambig_group = ambig_group # The real pair could definitely be useless
+        excluded_groups.add(ambig_group) # The real pair could definitely be useless
  
       else: # Different re1 fragment
         
@@ -842,7 +872,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
             
             if delta < too_close_limit: 
               count_write('too_close', line)  # Pair is possible even without ligation 
-              exclude_ambig_group = ambig_group # The real pair could definitely be useless
+              excluded_groups.add(ambig_group)  # The real pair could definitely be useless
               continue      
             
           elif pos_strand_b and (p3 < p1): # Sequencing toward each other
@@ -850,7 +880,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
           
             if delta < too_close_limit:
               count_write('too_close', line)  # Pair is possible even without ligation
-              exclude_ambig_group = ambig_group # The real pair could definitely be useless
+              excluded_groups.add(ambig_group) # The real pair could definitely be useless
               continue      
 
         if size_ok:
@@ -863,9 +893,11 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
           
         elif size_t < min_size:
           count_write('too_small', line)
+          excluded_groups.add(ambig_group)
           
         else:
           count_write('too_big', line)
+          excluded_groups.add(ambig_group)
       
     else: # Good stuff, trans contact, many errors impossible
       if size_ok:
@@ -874,25 +906,46 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
         
       elif size_t < min_size:
         count_write('too_small', line)
+        excluded_groups.add(ambig_group)
         
       else:
         count_write('too_big', line)
+        excluded_groups.add(ambig_group)
       
   for tag in out_file_objs:
     out_file_objs[tag].close()
+  
+  # Remove complete excluded ambiguity groups at the end:
+  # - Removes a whole ambiguity group if only one possibilty was suspect as it could be the real contact
+  
+  out_file_obj = open(filter_file, 'w')
+  with open_file_r(out_file_names['accepted']) as file_obj:
+    write = out_file_obj.write
     
+    for line in file_obj:
+      ambig_group = int(line.split()[12])
+      
+      if ambig_group in excluded_groups:
+        count_write('excluded_ambig_group', line)
+      
+      else:
+        write(line)
+  
+  counts['accepted'] -= counts['excluded_ambig_group']
+  
+  # 
+     
   n = counts['input_pairs']
   stats_list = []
   for key in ('input_pairs', 'accepted', 'near_cis_pairs', 'far_cis_pairs', 'trans_pairs',
               'internal_re1', 'adjacent_re1', 'circular_re1', 'overhang_re1',
-              'too_close', 'too_small', 'too_big',
+              'too_close', 'too_small', 'too_big', 'excluded_ambig_group',
               'internal_re2', 'no_end_re2',
               'unknown_contig'):
    
     stats_list.append((key, (counts[key], n))) # So percentages can be calculated in reports
   
-  filter_file = out_file_names['accepted']  # Main output never compressed at this stage
-  del out_file_names['accepted']
+  del out_file_names['accepted'] # Main output never compressed at this stage
   
   if keep_files and zip_files:
     for tag in out_file_objs:
@@ -905,7 +958,9 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
   
   log_report(stat_key, stats_list, {frag_key:(list(frag_hist), list(size_edges))})
   
-  move(filter_file_temp, filter_file)
+  os.unlink(filter_file_temp)
+  
+  #move(filter_file_temp, filter_file)
   
   return filter_file, out_file_names
     
@@ -1051,16 +1106,34 @@ def _write_ncc_line(ncc_data_a, ncc_data_b, ambig_group, _id, write_func):
   write_func(NCC_FORMAT % line_data)
 
   
-def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, file_root, ambig=True, unique_map=False):
+def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, unpair_path1, unpair_path2, file_root, ambig=True, unique_map=False, max_unpairable=1):
   
   paired_ncc_file_name = tag_file_name(file_root, 'pair', '.ncc')
   ambig_ncc_file_name = tag_file_name(file_root, 'pair_ambig', '.ncc')
   paired_ncc_file_name_temp = paired_ncc_file_name + TEMP_EXT
   ambig_ncc_file_name_temp = ambig_ncc_file_name + TEMP_EXT
   
-  if INTERRUPTED and os.path.exists(paired_ncc_file_name) and os.path.exists(ambig_ncc_file_name) \
-      and not os.path.exists(paired_ncc_file_name_temp) and not os.path.exists(ambig_ncc_file_name_temp):
-    return paired_ncc_file_name, ambig_ncc_file_name
+  #1 if INTERRUPTED and os.path.exists(paired_ncc_file_name) and os.path.exists(ambig_ncc_file_name) \
+  #1    and not os.path.exists(paired_ncc_file_name_temp) and not os.path.exists(ambig_ncc_file_name_temp):
+  #1   return paired_ncc_file_name, ambig_ncc_file_name
+  
+  # Load a list of unpairable hybrid segments
+  
+  unpaired_dict = defaultdict(set)
+  unpaired_size = None
+  
+  for file_path in (unpair_path1, unpair_path2):
+    with open_file_r(file_path) as file_obj:
+      for line in file_obj:
+        contig, start, end = line.split()
+        start = int(start)
+        
+        if not unpaired_size:
+          unpaired_size = int(end) - start
+        
+        unpaired_dict[contig].add(start)
+  
+  unpaired_offset = unpaired_size/2
   
   ncc_file_obj = open(paired_ncc_file_name_temp, 'w')
   write_pair = ncc_file_obj.write
@@ -1078,6 +1151,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, file_roo
   n_unambig = 0
   n_unmapped = 0
   n_hybrid_ambig = 0
+  n_unpairable = 0
           
   # Go through same files and pair based on matching id
   # Write out any multi-position mapings to ambiguous
@@ -1143,7 +1217,33 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, file_roo
       
               contacts[a] = [contacts[a][i]]
               contacts[b] = [contacts[b][j]]
+              
+      # Skip anything identifyably unpairable across genomes
+      unpairable = [False, False, False, False]
       
+      for i, end_poss in enumerate(contacts):
+        for ncc, score in end_poss:
+          chromo = ncc[0]
+          start, end = sorted(ncc[3:5])
+          
+          j = unpaired_offset * int(start/unpaired_offset)
+          n_unpair = 0
+          
+          while j < end:
+            if j in unpaired_dict[chromo]:
+              n_unpair += 1
+            
+            j += unpaired_offset
+                    
+          if n_unpair > max_unpairable:
+            unpairable[i] = True
+            break
+          
+      # If all internal sections of any end unmappable across genomes, then skip
+      #if (unpairable[0] or unpairable[3]) and (unpairable[1] or unpairable[2]):
+      #  n_unpairable += 1
+      #  continue
+               
       n0 = len(contacts[0])
       n1 = len(contacts[1])
       n2 = len(contacts[2])
@@ -1157,39 +1257,60 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, file_roo
         continue
         
       elif m == 1: # No multi position mapping
-        write_func = write_pair # Send to main file
-        pair_scores_a = []
-        pair_scores_b = []
-       
-        for end_a in (0,2):
-          for ncc_a, score_a in contacts[end_a]:
-            pair_scores_a.append(score_a)
         
-        for end_b in (1,3):
-          for ncc_b, score_b in contacts[end_b]:
-            pair_scores_b.append(score_b)
+        for end_a, end_b in ((0,2),(2,0),(1,3),(3,1)): # Same reads
+          if contacts[end_a] and unpairable[end_a]: # Mapped to one genome but other could be undetactable
+            if not contacts[end_b]: # Nothing detected for other genome
+              n_unpairable += 1
+              break
         
-        max_a = max(pair_scores_a)
-        max_b = max(pair_scores_b)
-        ap = 0
+        else: # Survived the hybrid pairability check
         
-        for end_a, end_b in ((0,1), (2,3), (0,3), (2,1)): # A:A, B:B, A:B, B:A genome pairings
-          for ncc_a, score_a in contacts[end_a]:
-            if score_a < max_a:
-              continue
-          
+          write_func = write_pair # Send to main file
+          pair_scores_a = []
+          pair_scores_b = []
+ 
+          for end_a in (0,2):
+            for ncc_a, score_a in contacts[end_a]:
+              pair_scores_a.append(score_a)
+ 
+          for end_b in (1,3):
             for ncc_b, score_b in contacts[end_b]:
-              if score_b < max_b:
+              pair_scores_b.append(score_b)
+ 
+          max_a = max(pair_scores_a)
+          max_b = max(pair_scores_b)
+          ap = 0
+          pairs = []
+          
+          for end_a, end_b in ((0,1), (2,3), (0,3), (2,1)): # A:A, B:B, A:B, B:A genome pairings
+            for ncc_a, score_a in contacts[end_a]:
+              if score_a < max_a:
                 continue
-              
-              ap += 1
+ 
+              for ncc_b, score_b in contacts[end_b]:
+                if score_b < max_b:
+                  continue
+ 
+                ap += 1
+                pairs.append((end_a, end_b, ncc_a, ncc_b))
+ 
+          if ap > 1:
+            for end_a, end_b, ncc_a, ncc_b in pairs: # Allow imperfect matches if genome ambigous
               _write_ncc_line(ncc_a, ncc_b, n_pairs, iid, write_func)
-        
-        if ap > 1:
-          n_hybrid_ambig += 1
-        else:
-          n_unambig += 1
-        
+           
+            n_hybrid_ambig += 1
+            
+          else:
+            if (max_a == 0) and (max_b == 0): # Only allow perfect unambigous
+              for end_a, end_b, ncc_a, ncc_b in pairs:
+                _write_ncc_line(ncc_a, ncc_b, n_pairs, iid, write_func)
+              
+              n_unambig += 1
+
+            else:
+              n_unpairable += 1
+            
       else:
         n_ambig += 1
         write_func = write_ambig # Send to ambig file            
@@ -1202,11 +1323,12 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, file_roo
  
   ncc_file_obj.close()
     
-  stats = [('end_1A_alignments', n_map[0]), 
+  stats = [('end_1A_alignments', n_map[0]),
            ('end_2A_alignments', n_map[1]),
            ('end_1B_alignments', n_map[2]), 
            ('end_2B_alignments', n_map[3]),
            ('unpaired_ends', n_unpaired),
+           ('hybrid_unpairable', (n_unpairable, n_pairs)),
            ('unmapped_end', (n_unmapped, n_pairs)),
            ('unique', (n_unambig, n_pairs)),
            ('genome_ambiguous', (n_hybrid_ambig, n_pairs)),
@@ -1426,6 +1548,9 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   std_out, std_err = proc.communicate()
   
   if std_err:
+    if 'Error' in std_err:
+      warn(std_err)
+    
     
     for line in std_err.split('\n'):
       
@@ -1549,6 +1674,185 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   move(clipped_file_temp, clipped_file)
   
   return clipped_file
+
+
+def get_hybrid_unpairable(fasta_files, genome_index_1, genome_index_2, hom_chromo_dict, align_exe, num_cpu, fragment_length=50, fragment_offset=25):
+  
+  # Go through each chromosome of each genome and get a FASTA file of all (sensible) fragments
+  # Record which fragment positions cannot be sensibly mapped to any position in the other genome
+  # must allow for mismatches and poor matches.
+  # be aware of soft-masked repeats and N's
+  # need only search between homologous chromosomes
+  
+  # When used for filtering it is better if both ends are not observable in a genome
+  # compare to observing one from each
+  
+  # Output is simply a list of unpairable bins
+  
+  # Think about a similar analysis where a sequence (not from the genome build)
+  # doesn't map to itself but does map to another chromosome
+  
+  genome1 = os.path.basename(genome_index_1)
+  genome2 = os.path.basename(genome_index_2)
+   
+  unpair_file_name = 'unpaired_%s_%s.tsv' % (genome1, genome2)
+  unpair_file_path = os.path.join(os.path.dirname(genome_index_1), unpair_file_name)
+  
+  if os.path.exists(unpair_file_path):
+    msg = 'Found existing hybrid mappability file %s'
+    info(msg % unpair_file_path)    
+    return unpair_file_path
+  
+  if not fasta_files:
+    msg = 'No nucleotide sequence FASTA files specified for genome %s: required to check unparable sequences in genome %s'
+    fatal(msg % (genome_index_1, genome_index_2))
+  
+  # Write FASTQ queries, split so that smaller SAM files are made during mapping check
+  msg = 'Calculating hybrid mappability of %s sequences in genome %s'
+  info(msg % (genome1, genome2))
+  
+  fasta_file_names = {}
+  fasta_file_objs = {}
+
+  k = 0
+  n_bases = 0
+
+  for fasta_file in fasta_files:
+    with open_file_r(fasta_file) as in_file_obj:
+      seq = ''
+      contig = None
+ 
+      for line in in_file_obj:
+        if line[0] == '>':
+          if seq and contig and (contig in hom_chromo_dict): # Write out prev
+            info('  .. fragmenting {:,} bp sequence for contig {}'.format(len(seq), contig))
+            fasta_file_name = '_temp_%s_pair_check.fasta' % (contig)
+            fasta_file_names[contig] = fasta_file_name
+            n = len(seq)
+            n_bases += n
+            
+            if os.path.exists(fasta_file_name):
+              contig = line[1:].split()[0] # Next header
+              seq = ''
+              continue
+            
+            out_file_obj = open(fasta_file_name, 'w')
+            write = out_file_obj.write
+            
+            i = 0
+            
+            while i < n:
+              j = i+fragment_length
+              sub_seq = seq[i:j]
+              a = b = 0
+              
+              while sub_seq and sub_seq[0] == 'N':
+                a += 1
+                sub_seq = sub_seq[1:]
+              
+              while sub_seq and sub_seq[-1] == 'N':
+                b += 1
+                sub_seq = sub_seq[:-1]
+              
+              if len(sub_seq) > MIN_READ_LEN:
+                fasta_line = '>%s__%d__%d__%d__%d\n%s\n' % (contig, i, j, a, b, sub_seq)
+                write(fasta_line)
+                k += 1
+             
+              i += fragment_offset
+         
+            out_file_obj.close()
+              
+          contig = line[1:].split()[0] # Next header
+          seq = ''
+ 
+        else:
+          seq += line[:-1]
+ 
+      if seq and contig and (contig in hom_chromo_dict): # Write out last
+        info('  .. found sequence for contig %s' % (contig,))
+        fasta_file_name = '_temp_%s_pair_check.fasta' % (contig)
+        fasta_file_names[contig] = fasta_file_name
+        n = len(seq)
+        n_bases += n
+        
+        if os.path.exists(fasta_file_name):
+          contig = line[1:].split()[0] # Next header
+          seq = ''
+          continue
+        
+        out_file_obj = open(fasta_file_name, 'w')
+        write = out_file_obj.write
+        
+        
+        i = 0
+        
+        while i < n:
+          j = i+fragment_length
+          sub_seq = seq[i:j]
+          a = b = 0
+          
+          while sub_seq and sub_seq[0] == 'N':
+            a += 1
+            sub_seq = sub_seq[1:]
+          
+          while sub_seq and sub_seq[-1] == 'N':
+            b += 1
+            sub_seq = sub_seq[:-1]
+          
+          if len(sub_seq) > MIN_READ_LEN:
+            fasta_line = '>%s__%d__%d__%d__%d\n%s\n' % (contig, i, j, a, b, sub_seq)
+            write(fasta_line)
+            k += 1
+         
+          i += fragment_offset
+        
+        out_file_obj.close()
+        
+  contigs = sorted(fasta_file_names)  
+  msg = 'Calculating hybrid mappability for {:,} fragments of {:,} sequences totalling {:,} bp'
+  info(msg.format(k, len(contigs), n_bases))
+  
+  with open(unpair_file_path, 'w') as unpair_file_obj:
+    unpair_write = unpair_file_obj.write
+ 
+    for i, contig in enumerate(contigs):
+      info('  .. contig %s - %d of %d' % (contig, i+1, len(contigs)))
+ 
+      sam_file_path = tag_file_name(fasta_file_names[contig], '', '.sam')
+
+      cmd_args = [align_exe, '-D', '20', '-R', '3', '-N', '1', # Allow a mismatch
+                  '-L', '20', '-i', 'S,1,0.50',
+                  '-x', genome_index_2,
+                  '-p', str(num_cpu),
+                  '-f', '-U', fasta_file_names[contig],
+                  '-S', sam_file_path]
+ 
+      proc = Popen(cmd_args, stdin=PIPE)
+      std_out, std_err = proc.communicate()
+ 
+      sam_file_obj = open(sam_file_path, 'r')
+ 
+      for line in sam_file_obj:
+        if line[0] == '@':
+          continue
+ 
+        sam_data = line.split('\t')
+        if not sam_data:
+          continue
+ 
+        sam_bits = int(sam_data[1])
+ 
+        if sam_bits & 0x4: # Not mapped
+          fasta_head = sam_data[0]
+          contig, start, end, off1, off2 = fasta_head.split('__')
+          unpair_write('%s\t%s\t%s\n' % (contig, start, end))
+ 
+      sam_file_obj.close()
+      os.unlink(sam_file_path)
+      os.unlink(fasta_file_names[contig])
+  
+  return unpair_file_path
   
 
 def get_chromo_re_fragments(fasta_file_objs, contig, sequence, re_site, cut_offset, mappability_length=75):
@@ -2797,7 +3101,8 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
   LOG_FILE_PATH = file_root + '.log'
   STAT_FILE_PATH = file_root + '_stats.json'
   VERBOSE = bool(verbose)
-  INTERRUPTED = True # is_interrupted_job()
+  #1 INTERRUPTED = is_interrupted_job()
+  INTERRUPTED = True
   
   # Check for no upper fragment size limit
   if len(sizes) == 1:
@@ -2860,6 +3165,9 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
  
     if re2:
       re2_files.append(check_re_frag_file(genome_index2, re2, g_fastas2, align_exe, num_cpu, remap=remap))
+      
+    unpair_path1 = get_hybrid_unpairable(g_fastas, genome_index, genome_index2, hom_chromo_dict, align_exe, num_cpu)
+    unpair_path2 = get_hybrid_unpairable(g_fastas2, genome_index2, genome_index, hom_chromo_dict, align_exe, num_cpu)
 
 
   # Clip read seqs at any sequenced ligation junctions
@@ -2878,14 +3186,14 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
     sam_file3 = map_reads(clipped_file1, genome_index2, align_exe, num_cpu, ambig, qual_scheme, 3)
     sam_file4 = map_reads(clipped_file2, genome_index2, align_exe, num_cpu, ambig, qual_scheme, 4)
   
-  if not keep_files:
-    os.unlink(clipped_file1)
-    os.unlink(clipped_file2)
+  #1 if not keep_files:
+  #1   os.unlink(clipped_file1)
+  #1   os.unlink(clipped_file2)
  
   info('Pairing FASTQ reads...')
   
   if genome_index2:
-    paired_ncc_file, ambig_paired_ncc_file = pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, intermed_file_root, ambig, unique_map)
+    paired_ncc_file, ambig_paired_ncc_file = pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, unpair_path1, unpair_path2, intermed_file_root, ambig, unique_map)
   else:
     paired_ncc_file, ambig_paired_ncc_file = pair_mapped_seqs(sam_file1, sam_file2, intermed_file_root, ambig, unique_map)
   
@@ -2983,13 +3291,13 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
       if ambig:
         os.unlink(ambig_clean_ncc_file)
   
-  if not keep_files:
-    os.unlink(sam_file1) 
-    os.unlink(sam_file2)
-  
-    if genome_index2:
-      os.unlink(sam_file3) 
-      os.unlink(sam_file4)
+  #1 if not keep_files:
+  #1   os.unlink(sam_file1) 
+  #1   os.unlink(sam_file2)
+  #1 
+  #1   if genome_index2:
+  #1     os.unlink(sam_file3) 
+  #1     os.unlink(sam_file4)
  
   final_stats = get_ncc_stats(out_file, hom_chromo_dict)
   log_report('final', final_stats)

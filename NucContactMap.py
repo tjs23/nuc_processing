@@ -471,7 +471,7 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
         a = n_a + int((p_a-s_a)/bin_size)
         b = n_b + int((p_b-s_b)/bin_size)
         
-        k = 1 if groups[ag] > 1 else 0
+        k = 0 if groups[ag] == 1 else 1
         
         data[a, b, k] += 1.0
         data[b, a, k] += 1.0      
