@@ -38,10 +38,15 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 
 from collections import defaultdict
 from math import sin, cos, pi
-import colorsys, base64, cStringIO, sys
+import colorsys, base64, sys
 import numpy as np
 from scipy import misc
 
+try:
+  from cStringIO import StringIO as bytes_io
+except ImportError:
+  from io import BytesIO as bytes_io
+  
 TAU = 2*pi
 LINE_TYPE = 'line'
 SCATTER_TYPE = 'scatter'
@@ -230,7 +235,7 @@ class SvgDocument(object):
   
   def image(self, x, y, w, h, data):
   
-    io = cStringIO.StringIO()
+    io = bytes_io()
     img = misc.toimage(data)
     img.save(io, format="PNG")
     base_64_data = base64.b64encode(io.getvalue())

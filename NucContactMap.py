@@ -118,7 +118,7 @@ def _get_trans_dev(trans_counts):
 
   cp = float(len(trans_counts))
   
-  vals = np.array(trans_counts.values(), float)
+  vals = np.array(list(trans_counts.values()), float)
   
   if not len(vals):
     return 0.0, '?'
@@ -322,12 +322,12 @@ def load_ncc(ncc_path):
         contact_list = []
         contacts[chr_pair] = contact_list
       
-      if strand_a > 0:
+      if strand_a == '-':
         p_a = f_end_a
       else:
         p_a = f_start_a
       
-      if strand_b > 0:
+      if strand_b == '-':
         p_b = f_end_b
       else:
         p_b = f_start_b

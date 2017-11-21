@@ -306,7 +306,12 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
   remove = set()
   remove_ambig_group = set()
   
-  for re_start, re_ends in frag_counts.iteritems():
+  if hasattr(frag_counts, 'iteritems'):
+    items = frag_counts.iteritems
+  else:
+    items = frag_counts.items
+  
+  for re_start, re_ends in items():
     if len(re_ends) > num_copies:
       ambig_groups = {x[3] for x in re_ends}
       
@@ -953,10 +958,14 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
   
   frag_hist, size_edges = np.histogram(frag_sizes, bins=50, range=(0, sizes[1]))
   
+  # JSON encoder in Python 3 has become picky about NumPy datatypes
+  frag_hist = [int(x) for x in frag_hist]
+  size_edges = [float(x) for x in size_edges]
+  
   stat_key = 'filter_ambig' if ambig else 'filter'
   frag_key = 'frag_sizes_ambig' if ambig else 'frag_sizes'
   
-  log_report(stat_key, stats_list, {frag_key:(list(frag_hist), list(size_edges))})
+  log_report(stat_key, stats_list, {frag_key:(frag_hist, size_edges)})
   
   os.unlink(filter_file_temp)
   
@@ -1409,8 +1418,6 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
     scores_b = []
     
     if id1 != id2:
-      print line1.split('\t')
-      print line2.split('\t')
       raise Exception('Pair mismatch')
     
     while id1 == _id:
@@ -1548,6 +1555,8 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   std_out, std_err = proc.communicate()
   
   if std_err:
+    std_err = std_err.decode('ascii')
+  
     if 'Error' in std_err:
       warn(std_err)
     
@@ -2221,7 +2230,6 @@ def index_genome(base_name, file_names, output_dir, indexer_exe='bowtie2-build',
 
   cmd_args += ['-t', str(table_size), fasta_file_str, base_name]
 
-  #print(' '.join(cmd_args))
   call(cmd_args, cwd=output_dir)
   
   
