@@ -41,6 +41,7 @@ from math import sin, cos, pi
 import colorsys, base64, sys
 import numpy as np
 from scipy import misc
+from xml.sax import saxutils
 
 try:
   from cStringIO import StringIO as bytes_io
@@ -206,6 +207,7 @@ class SvgDocument(object):
     else:
       sup = ''
     
+    text = saxutils.escape(text)
     line = '     <text x="%d" y="%d" text-anchor="%s" font-family="%s" font-size="%d"%s>%s%s</text>\n' % (x,y,anchor,font,size,attrs,text,sup)
       
       
@@ -967,7 +969,6 @@ class SvgDocument(object):
     return width, y-y0
 
 if __name__ == '__main__':
-
 
   svg_doc = SvgDocument()
   height = 1200
