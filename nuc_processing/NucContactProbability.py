@@ -91,7 +91,7 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
     n_files = len(ncc_group)
     
     for n, ncc_path in enumerate(ncc_group):
-      print g, n
+      print(g, n)
       seq_seps[ncc_path] = []
       weights[ncc_path] = []
  
