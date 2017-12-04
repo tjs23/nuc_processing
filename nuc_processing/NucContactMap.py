@@ -42,7 +42,7 @@ import os, sys
 from scipy.stats import norm
 from math import ceil
 from collections import defaultdict
-from NucSvg import SvgDocument
+from .NucSvg import SvgDocument
 
 PROG_NAME = 'nuc_contact_map'
 VERSION = '1.1.0'

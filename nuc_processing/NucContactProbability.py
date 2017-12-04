@@ -39,7 +39,7 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 import sys
 import os
 import numpy as np
-import NucSvg
+from . import NucSvg
 
 
 PROG_NAME = 'nuc_contact_probability'

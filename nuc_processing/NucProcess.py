@@ -42,8 +42,8 @@ import numpy as np
 from collections import defaultdict
 from shutil import move
 from subprocess import Popen, PIPE, call
-from NucSvg import SvgDocument
-from NucContactMap import nuc_contact_map
+from .NucSvg import SvgDocument
+from .NucContactMap import nuc_contact_map
 
 PROG_NAME = 'nuc_process'
 VERSION = '1.1.1'
