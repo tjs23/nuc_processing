@@ -4,5 +4,9 @@ python:
   - "3.5"
   - "3.6"
 install:
+  - pip install pytest-cov codecov
   - pip install .
-script: pytest
+script:
+  - pytest --cov=nuc_processing
+after_success:
+  - codecov
