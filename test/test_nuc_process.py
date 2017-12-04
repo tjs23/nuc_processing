@@ -1,6 +1,5 @@
 from nuc_processing.NucProcess import *
 
-import pytest
 
 def test_open_file_r(tmpdir):
     contents = "foo\nbar"
