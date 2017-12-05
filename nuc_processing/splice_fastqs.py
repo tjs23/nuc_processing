@@ -127,7 +127,8 @@ def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, kee
       line_b4 = read_b()
       
   if out_lines:
-    write_lines(out_lines)
+    # FIXME: Can't possibly work, write_lines is undefined
+    write_lines(out_lines) # noqa: F821
 
   if out_path:
     stdout.write("\r  Processed {:,} entries in {:.1f}s\n".format(i, time()-t0))
