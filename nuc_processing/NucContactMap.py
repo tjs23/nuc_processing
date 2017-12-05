@@ -39,7 +39,6 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 import numpy as np
 import os, sys
 
-from scipy.stats import norm
 from math import ceil
 from collections import defaultdict
 from .NucSvg import SvgDocument
