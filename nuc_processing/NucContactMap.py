@@ -99,16 +99,6 @@ def _color_func(matrix, colors, zero_color):
   color_matrix = np.array(color_matrix, dtype=np.uint8)
   
   return color_matrix
-  
-
-def _color_func_white(matrix, colors):
-  
-  return _color_func(matrix, colors, [255.0, 255.0, 255.0])
-  
-
-def _color_func_black(matrix, colors):
-  
-   return _color_func(matrix, colors, [0.0, 0.0, 0.0])
 
 
 def _get_trans_dev(trans_counts):
@@ -535,8 +525,9 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
     if not color_ambig:
       color_ambig = [100.0, 0.0, 0.0]
     
-    colors = [color, color_ambig]
-    color_func = lambda x, c=colors: _color_func_black(x, c)
+    def color_func(x, c=(color, color_ambig)):
+      return _color_func(x, c, [0.0] * 3)
+
     grid_color = '#303030'
     
   else:
@@ -545,8 +536,9 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
     if not color_ambig:
       color_ambig = [180.0, 180.0, 0.0]
     
-    colors = [color, color_ambig]
-    color_func = lambda x, c=colors: _color_func_white(x, c)
+    def color_func(x, c=(color, color_ambig)):
+      return _color_func(x, c, [255.0] * 3)
+
     grid_color = '#C0C0C0'
   
   w = svg_width - 2 * offset

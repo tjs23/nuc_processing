@@ -376,7 +376,8 @@ class SvgDocument(object):
       font = self.font  
     
     if not color_func:
-      color_func = lambda x, p=pos_color, n=neg_color, b=bg_color: self._default_color_func(x, p, n, b)
+      def color_func(x, p=pos_color, n=neg_color, b=bg_color):
+        self._default_color_func(x, p, n, b)
     
     c_matrix = np.array(matrix)
     
