@@ -240,9 +240,11 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
 # python NucContactProbability.py -i /data/hi-c/GSE80280_stevens/*.ncc -o test.svg -l Stevens_[8] Nagano_[20] Flyamer_[20] Ramani_[500] -i2 /data/hi-c/GSE94489_nagano/*.ncc -i3 /data/hi-c/GSE80006_flyamer/*.ncc -i4 ncc_temp/*.ncc
 
 
-if __name__ == '__main__':
-
+def main(argv=None):
   from argparse import ArgumentParser
+
+  if argv is None:
+    argv = sys.argv[1:]
 
   epilog = 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
 
@@ -273,7 +275,7 @@ if __name__ == '__main__':
   arg_parse.add_argument('-s', default=100, metavar='KB_BIN_SIZE', type=int,
                          help='Sequence region size in kilobases for calculation of contact probabilities. Default is 100 (kb)')
 
-  args = vars(arg_parse.parse_args())
+  args = vars(arg_parse.parse_args(argv))
 
   ncc_paths1 = args['i']
   ncc_paths2 = args['i2'] or None
@@ -309,3 +311,7 @@ if __name__ == '__main__':
       svg_path = svg_path + '.svg'
 
   plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size, svg_width, labels)
+
+
+if __name__ == '__main__':
+  main()

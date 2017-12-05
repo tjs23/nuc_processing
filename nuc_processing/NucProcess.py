@@ -3278,9 +3278,11 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
   return out_file
 
 
-if __name__ == '__main__':
-
+def main(argv=None):
   from argparse import ArgumentParser
+
+  if argv is None:
+    argv = sys.argv[1:]
 
   epilog = 'Note %s can be edited to add further restriction enzyme cut-site defintions. ' % RE_CONF_FILE
   epilog += 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
@@ -3379,7 +3381,7 @@ if __name__ == '__main__':
   arg_parse.add_argument('-c', default=0, metavar='GENOME_COPIES',
                          type=int, help='Number of whole-genome copies, e.g. for S2 phase; Default 1 unless homologous chromosomes (-hc) are specified for hybrid genomes.')
 
-  args = vars(arg_parse.parse_args())
+  args = vars(arg_parse.parse_args(argv))
 
   fastq_paths = args['i']
   genome_index = args['g']
@@ -3451,3 +3453,7 @@ if __name__ == '__main__':
   #  - options for different RE strategies, e.g. no fill-in of sticky ends etc.
   #  - normalise/correct population data?
   #  - split input files to parallelise the initial stages of the process
+
+
+if __name__ == '__main__':
+  main()

@@ -576,9 +576,11 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
     return svg_doc.svg(svg_width, svg_width)
 
 
-if __name__ == '__main__':
-
+def main(argv=None):
   from argparse import ArgumentParser
+
+  if argv is None:
+    argv = sys.argv[1:]
 
   epilog = 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
 
@@ -608,8 +610,7 @@ if __name__ == '__main__':
 
   arg_parse.add_argument('-ca', nargs=1, metavar='RGB_COLOR',
                          help='Optional color for ambigous contact points as a 24-bit hexidecimal RBG code e.g. "#FF0000" (with quotes)')
-
-  args = vars(arg_parse.parse_args())
+  args = vars(arg_parse.parse_args(argv))
 
   ncc_paths = args['i']
   svg_tag = args['o']
@@ -632,3 +633,7 @@ if __name__ == '__main__':
       fatal('NCC file could not be found at "{}"'.format(ncc_path))
 
     nuc_contact_map(ncc_path, svg_tag, svg_width, bin_size, black_bg, color, color_a, min_contig_size=min_contig_size)
+
+
+if __name__ == "__main__":
+  main()

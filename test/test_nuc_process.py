@@ -1,5 +1,7 @@
 from nuc_processing.NucProcess import *
 
+import pytest
+
 
 def test_open_file_r(tmpdir):
     contents = "foo\nbar"
@@ -14,3 +16,9 @@ def test_open_file_r(tmpdir):
     for path in [uncompressed, compressed]:
         with open_file_r(path) as f:
             assert f.read() == contents
+
+
+def test_help():
+    with pytest.raises(SystemExit) as e:
+        main(["--help"])
+        assert e.value.code == 0
