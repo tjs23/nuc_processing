@@ -139,8 +139,6 @@ def read_barcode_file(bc_file_path):
  
     # Check consistencty of length single/dual
     if '-' in bc_key:
-      diff_ends = True
-
       for bc_key2 in sample_names:
         if '-' not in bc_key2:
           msg = 'Barcodes not consistently dual or single'
@@ -154,8 +152,6 @@ def read_barcode_file(bc_file_path):
       info('Barcode length %d' % ((bc_length-1)/2))
 
     else:
-      diff_ends = False
- 
       for bc_key2 in sample_names:
         if '-' in bc_key2:
           msg = 'Barcodes not consistently dual or single'
@@ -264,8 +260,8 @@ def analyse_fastq_barcodes(fastq_paths, sample_names, analysis_file_path, bc_len
         line_1d = readline_1()
         line_2a = readline_2()
         line_2b = readline_2()
-        line_2c = readline_2()
-        line_2d = readline_2()
+        line_2c = readline_2() # noqa: F841
+        line_2d = readline_2() # noqa: F841
  
         if n_reads % 100000 == 0:
           levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
@@ -305,8 +301,8 @@ def analyse_fastq_barcodes(fastq_paths, sample_names, analysis_file_path, bc_len
  
         line_1a = readline_1()
         line_1b = readline_1()
-        line_1c = readline_1()
-        line_1d = readline_1()
+        line_1c = readline_1() # noqa: F841
+        line_1d = readline_1() # noqa: F841
  
         if n_reads % 100000 == 0:
           levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])

@@ -94,7 +94,6 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
     with open(json_path) as file_obj:
       stat_dict = json.load(file_obj)
  
-      general_stats = stat_dict['general']
       clip_stats1 = dict(stat_dict['clip_1'])
       clip_stats2 = dict(stat_dict['clip_2'])
       map_1_stats = dict(stat_dict['map_1'])
@@ -125,8 +124,6 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       n_int_re1 = filter_stats['internal_re1'][0]
       n_adj_re1 = filter_stats['adjacent_re1'][0]
       n_near_cis_pairs, np2 = filter_stats['near_cis_pairs']
-      n_far_cis_pairs = filter_stats['far_cis_pairs'][0]
-      n_trans_pairs = filter_stats['trans_pairs'][0]
       
       n_other = 0
       for key in ('circular_re1', 'overhang_re1',
@@ -140,12 +137,9 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       n_unmapped_end, n_pairs = pair_stats['unmapped_end']
       n_unique_map = pair_stats['unique'][0]
       n_anbigous = pair_stats['ambiguous'][0]
-      n_end_1 = pair_stats['end_1_aligned']
-      n_end_2 = pair_stats['end_2_aligned']
       
       n_promisc, n_prom_inp = promiscuity_stats['promiscuous']
       n_reads_1 = clip_stats1['input_reads']
-      n_reads_2 = clip_stats1['input_reads']
      
       n_uniqa, n_readsa = map_1_stats['unique']
       n_uniqb, n_readsb = map_2_stats['unique']
@@ -205,8 +199,6 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       ne = 0.01 * float(n_ends)
       npi = 0.01 * float(n_prom_inp)
       nc = 0.01 * float(n_contacts)
-      nr1 = 0.01 * float(n_reads_1)
-      nr2 = 0.01 * float(n_reads_2)
       
       hist, edges = frag_sizes
       nf = sum(hist)

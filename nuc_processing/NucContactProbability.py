@@ -161,16 +161,8 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
 
     seq_seps_all = np.array(seq_seps_all)
  
-    log_max = (int(2 * np.log10(seq_seps_all.max()))/2.0)
-    log_min = np.log10(bin_size)
- 
     num_bins = (x_limit-bin_size)/bin_size
     bins = np.linspace(bin_size, x_limit, num_bins)
- 
-    opacities = []
-    data_lists = []
-    colors = []
-    names = []
  
     comb_y_data = None
  

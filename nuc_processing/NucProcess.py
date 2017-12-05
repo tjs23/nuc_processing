@@ -170,8 +170,6 @@ def write_sam_file(ncc_file_path, ref_sam_file_1, ref_sam_file_2):
           
    in_file_obj_1 = open_file_r(ref_sam_file_1)
    in_file_obj_2 = open_file_r(ref_sam_file_2)
-   head_byte_1 = 0
-   head_byte_2 = 0   
    
    read2 = in_file_obj_2.readline
    write = sam_file_obj.write
@@ -346,10 +344,6 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
           remove_ambig_group.add(re_end[3])
         
   
-  n_trans = 0
-  n_cis_near = 0
-  n_cis_far = 0
-      
   in_file_obj.seek(0)
   for line in in_file_obj:
     line_data = line.split()
@@ -1702,7 +1696,6 @@ def get_hybrid_unpairable(fasta_files, genome_index_1, genome_index_2, hom_chrom
   info(msg % (genome1, genome2))
   
   fasta_file_names = {}
-  fasta_file_objs = {}
 
   k = 0
   n_bases = 0
@@ -2112,7 +2105,6 @@ def read_re_frag_file(file_path):
   
   if os.path.exists(npy_cache):
     in_data_dict = np.load(npy_cache)
-    data_dict = {}
  
     for key in in_data_dict:
       source, contig = key.split()
@@ -2921,11 +2913,10 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
     if not is_ok:
       fatal(msg)
       
-    haplotype_dict, hom_chromo_dict, chromo_name_dict = read_homologous_chromos(homo_chromo)
+    _, hom_chromo_dict, chromo_name_dict = read_homologous_chromos(homo_chromo)
     
   else:
     chromo_name_dict = {}
-    haplotype_dict = {}
     hom_chromo_dict = {}
   
   # Check genome index file, if not being rebuilt
@@ -3002,8 +2993,9 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
   
   re1Seq = get_re_seq(re1)
   
+  # FIXME: re2Seq is never used
   if re2:
-    re2Seq = get_re_seq(re2)
+    re2Seq = get_re_seq(re2)  # noqa: F841
     
     if re2 not in RE_SITES:
       msg = 'Restriction enzyme "%s" not known. Available: %s.' % (re2, ', '.join(sorted(RE_SITES)))
@@ -3015,7 +3007,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
       fatal(msg)
       
   else:
-    re2Seq = None  
+    re2Seq = None  # noqa: F841
     
   # Check FASTQ quality scheme
   if qual_scheme:

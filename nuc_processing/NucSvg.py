@@ -652,7 +652,6 @@ class SvgDocument(object):
         x0 = x-radius
         x1 = x+radius
         y0 = y-radius
-        y1 = y+radius
     
         if yU is not None:
           self.line((x,y,x,yU), color=color)
@@ -669,7 +668,6 @@ class SvgDocument(object):
         x0 = x-radius
         x1 = x+radius
         y0 = y-radius
-        y1 = y+radius
     
         if yU is not None:
           self.line((x,y,x,yU), color=color)
@@ -684,7 +682,6 @@ class SvgDocument(object):
         x0 = x-radius
         x1 = x+radius
         y0 = y-radius
-        y1 = y+radius
         
         if yU is not None:
           self.line((x,y,x,yU), color=color)
@@ -725,11 +722,6 @@ class SvgDocument(object):
     delta_yplot = y1 - y0
     delta_x_data = data_region[2] - data_region[0] or 1.0
     delta_y_data = data_region[3] - data_region[1] or 1.0
-    size = 7
-    
-    if x_labels:
-      sizes = [len(x) for x in x_labels]
-      size = max(sizes)
   
     y_close = 80
     x_close = 140
@@ -896,7 +888,6 @@ class SvgDocument(object):
     if isinstance(width, float) and width < 1.0:
       width *= 1000
     
-    lines = []
     n_cols = len(data[0])
     
     if not col_formats:

@@ -81,7 +81,7 @@ def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, kee
     line_a4 = read_a()
     line_b1 = read_b()
     line_b2 = read_b()
-    line_b3 = read_b()
+    line_b3 = read_b()  # noqa: F841
     line_b4 = read_b()
     
     while line_a1 and line_b1:
@@ -123,7 +123,7 @@ def splice_fastqs(fastq_path_a, fastq_path_b, out_path=None, check_ids=True, kee
       line_a4 = read_a()
       line_b1 = read_b()
       line_b2 = read_b()
-      line_b3 = read_b()
+      line_b3 = read_b()  # noqa: F841
       line_b4 = read_b()
       
   if out_lines:

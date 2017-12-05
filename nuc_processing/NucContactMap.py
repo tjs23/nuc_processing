@@ -77,8 +77,6 @@ def _color_func(matrix, colors, zero_color):
   for k in range(d):
     base_colors[k] += 0.5 * rgb_0
   
-  counts = np.zeros((n, m), int)
-  
   for i in range(n):
     for j in range(m):
       l = 0.0
@@ -188,7 +186,6 @@ def _get_num_isolated(positions, threshold=500000):
 def _get_num_isolated_groups(positions, threshold=500000, pos_err=100):
   
   num_isolated = 0
-  pos = list(enumerate(positions))
   found = [0] * len(positions)
   
   group_dict = defaultdict(list)
@@ -236,7 +233,6 @@ def _get_num_isolated_groups(positions, threshold=500000, pos_err=100):
 def _get_mito_fraction(contacts, min_sep=1e2, sep_range=(10**6.5, 10**7.5)):
   
   a, b = sep_range
-  diag_seps = []
   in_range = 0
   total = 0
   
