@@ -298,7 +298,6 @@ if __name__ == '__main__':
   ncc_paths = [x for x in (ncc_paths1, ncc_paths2, ncc_paths3, ncc_paths4) if x]
   
   if not ncc_paths:
-    import sys
     arg_parse.print_help()
     fatal('No input NCC format files specified') 
 

@@ -637,7 +637,6 @@ if __name__ == '__main__':
   min_contig_size = args['m']
   
   if not ncc_paths:
-    import sys
     arg_parse.print_help()
     sys.exit(1)
     
