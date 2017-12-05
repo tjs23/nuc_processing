@@ -49,10 +49,10 @@ PROG_NAME = 'nuc_process'
 VERSION = '1.1.1'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
-RE_SITES = {'MboI'   : '^GATC_',
-            'DpnII'  : '^GATC_',
-            'AluI'   : 'AG^CT',
-            'BglII'  : 'A^GATC_T',
+RE_SITES = {'MboI'   : '^GATC_',    # noqa: E203
+            'DpnII'  : '^GATC_',    # noqa: E203
+            'AluI'   : 'AG^CT',     # noqa: E203
+            'BglII'  : 'A^GATC_T',  # noqa: E203
             'HindIII': 'A^AGCT_T'}
 QUAL_SCHEMES = ['phred33', 'phred64', 'solexa']
 DEFAULT_MIN_QUAL = 10
