@@ -256,7 +256,7 @@ def _get_mito_fraction(contacts, min_sep=1e2, sep_range=(10**6.5, 10**7.5)):
     
     n = len(d_seps)
     smaller = len((d_seps <= a).nonzero()[0])
-    larger  = len((d_seps >= b).nonzero()[0])
+    larger = len((d_seps >= b).nonzero()[0])
     
     total += n
     in_range += n-(smaller+larger)
@@ -264,7 +264,7 @@ def _get_mito_fraction(contacts, min_sep=1e2, sep_range=(10**6.5, 10**7.5)):
   if not total:
     return 0.0, '?'
   
-  frac  = in_range/float(total)
+  frac = in_range/float(total)
   
   if frac < 0.30:
     score_cat = 'Non-M'
@@ -292,7 +292,7 @@ def load_ncc(ncc_path):
       f_start_b = int(f_start_b)
       f_end_b = int(f_end_b)
       start_b = int(start_b)
-      end_b  = int(end_b)
+      end_b = int(end_b)
       ambig_group = int(ambig_group)
       
       if chr_a in chromo_limits:
@@ -422,7 +422,7 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
   
   trans_counts = {}
 
-  n_isol  = 0
+  n_isol = 0
   n_pairs = 0
   
   groups = defaultdict(int)
@@ -491,7 +491,7 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
   n_ambig = len([x for x in groups.values() if x > 1])
   n_homolog = len(homolog_groups)
   n_trans = len(trans_groups)
-  n_cis  = len(cis_groups)
+  n_cis = len(cis_groups)
   
   n_cont = len(groups)
   
@@ -632,12 +632,12 @@ if __name__ == '__main__':
   args = vars(arg_parse.parse_args())
   
   ncc_paths = args['i']
-  svg_tag   = args['o']
+  svg_tag = args['o']
   svg_width = args['w']
-  bin_size  = args['s']
-  black_bg  = args['b']
-  color     = args['c']
-  color_a   = args['ca']
+  bin_size = args['s']
+  black_bg = args['b']
+  color = args['c']
+  color_a = args['ca']
   min_contig_size = args['m']
   
   if not ncc_paths:

@@ -122,11 +122,11 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       mean_redundancy = redundancy_stats['mean_redundancy']
       
       n_pairs_vaild = filter_stats['input_pairs'][0]
-      n_int_re1  = filter_stats['internal_re1'][0] 
-      n_adj_re1  = filter_stats['adjacent_re1'][0]
+      n_int_re1 = filter_stats['internal_re1'][0]
+      n_adj_re1 = filter_stats['adjacent_re1'][0]
       n_near_cis_pairs, np2 = filter_stats['near_cis_pairs']
-      n_far_cis_pairs  = filter_stats['far_cis_pairs'][0]
-      n_trans_pairs    = filter_stats['trans_pairs'][0]
+      n_far_cis_pairs = filter_stats['far_cis_pairs'][0]
+      n_trans_pairs = filter_stats['trans_pairs'][0]
       
       n_other = 0
       for key in ('circular_re1', 'overhang_re1',
@@ -153,17 +153,17 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       n_ambigb = map_2_stats['ambiguous'][0]
       
       pc_map = (n_uniqa+n_uniqb+n_ambiga+n_ambigb)/(0.01 * (n_readsa+n_readsb))
-      pc_short =  (n_short_1+n_short_2)/(0.01 * (n_clip_1+n_clip_2))
+      pc_short = (n_short_1+n_short_2)/(0.01 * (n_clip_1+n_clip_2))
 
-      n_isol  = 0
-      n_cont  = 1
+      n_isol = 0
+      n_cont = 1
       
       chromo_limits, contacts = load_ncc(ncc_path)
       chromos = sorted(chromo_limits)
 
       trans_counts = {}
-      n_cont  = 0
-      n_isol  = 0
+      n_cont = 0
+      n_isol = 0
  
       for i, chr_1 in enumerate(chromos):
         for chr_2 in chromos[i:]:
@@ -226,7 +226,7 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
         j += 1
       
       iqr = '%d-%d' % (edges[i], edges[j])
-      cl  = 0.5*(clip_len_1+clip_len_2)
+      cl = 0.5*(clip_len_1+clip_len_2)
       
       all_stats[file_root] = {'rpm':(file_root, cl, n_reads_1, pc_short, pc_map, n_pairs,
                                      n_unique_map/np, n_anbigous/np, n_unmapped_end/np),
@@ -370,9 +370,9 @@ if __name__ == '__main__':
   args = vars(arg_parse.parse_args())
   
   json_paths = args['j']
-  ncc_paths  = args['n']
-  quiet      = args['q']
-  tsv_path   = args['o']
-  text_path  = args['t']
+  ncc_paths = args['n']
+  quiet = args['q']
+  tsv_path = args['o']
+  text_path = args['t']
   
   nuc_stats(ncc_paths, json_paths, quiet, tsv_path, text_path)

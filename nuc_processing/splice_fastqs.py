@@ -158,10 +158,10 @@ if __name__ == '__main__':
   
   args = vars(arg_parse.parse_args())
   
-  fastq_path_a, fastq_path_b  = args['fastqs']
+  fastq_path_a, fastq_path_b = args['fastqs']
   
-  out_path     = args['o']
-  check_ids    = args['c']
+  out_path = args['o']
+  check_ids = args['c']
   keep_rep_ids = args['k']
   
   splice_fastqs(fastq_path_a, fastq_path_b, out_path, check_ids, keep_rep_ids)

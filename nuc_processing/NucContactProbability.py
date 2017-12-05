@@ -109,7 +109,7 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
           f_start_b = int(f_start_b)
           f_end_b = int(f_end_b)
           start_b = int(start_b)
-          end_b  = int(end_b)
+          end_b = int(end_b)
  
           if chr_a in chromo_limits:
             s, e = chromo_limits[chr_a]
@@ -143,7 +143,7 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
         seps = abs(contact_array[:,0]-contact_array[:,1])
 
         indices = seps.nonzero()
-        seps    = seps[indices]
+        seps = seps[indices]
  
         p_start, p_end = chromo_limits[chromo]
         size = float(p_end-p_start+1)
@@ -161,8 +161,8 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
 
     seq_seps_all = np.array(seq_seps_all)
  
-    log_max  = (int(2 * np.log10(seq_seps_all.max()))/2.0)
-    log_min  = np.log10(bin_size)
+    log_max = (int(2 * np.log10(seq_seps_all.max()))/2.0)
+    log_min = np.log10(bin_size)
  
     num_bins = (x_limit-bin_size)/bin_size
     bins = np.linspace(bin_size, x_limit, num_bins)
@@ -242,11 +242,11 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
     svg_doc = NucSvg.SvgDocument()
  
     pad = 100
-    width   = svg_width - pad
-    height  = svg_width - pad
+    width = svg_width - pad
+    height = svg_width - pad
     x_label = 'Sequence separation (bp)'
     y_label = 'Contact probability (%d kb bins)' % (bin_size/1000)
-    title   = 'Contact sequence separations'
+    title = 'Contact sequence separations'
     texts = [(u'\u03bb=1.0', '#808080', (x1+1.5, y1+dy-1.50)),
              (u'\u03bb=1.5', '#808080', (x1+1.5, y1-dy-2.25))]
  
@@ -344,10 +344,10 @@ if __name__ == '__main__':
   ncc_paths2 = args['i2'] or None
   ncc_paths3 = args['i3'] or None
   ncc_paths4 = args['i4'] or None
-  svg_path   = args['o']
-  svg_width  = args['w']
-  bin_size   = args['s']
-  labels     = args['l'] or None
+  svg_path = args['o']
+  svg_width = args['w']
+  bin_size = args['s']
+  labels = args['l'] or None
   
   ncc_paths = [x for x in (ncc_paths1, ncc_paths2, ncc_paths3, ncc_paths4) if x]
   

@@ -588,7 +588,7 @@ class SvgDocument(object):
         if name:
           color = colors[i % n_colors]
           symbol = symbols[i] if graph_type in (LINE_TYPE, SCATTER_TYPE) else 'square'
-          self._graph_draw_symbols( [(x2, y2, None, None)], color, symbol, fill=color, symbol_size=7)
+          self._graph_draw_symbols([(x2, y2, None, None)], color, symbol, fill=color, symbol_size=7)
           self.text(name, (x2+font_size,y2), anchor='start', size=font_size, vert_align='middle')
           y2 += font_size
   
@@ -775,11 +775,11 @@ class SvgDocument(object):
         s_y = s
         n_y = n
 
-    inc_x = (abs(space_x_data)/space_x_data) *  n_x * 10**(deci_x)
+    inc_x = (abs(space_x_data)/space_x_data) *  n_x * 10**(deci_x) # noqa: E222
     inc_y = (abs(space_y_data)/space_y_data) * -n_y * 10**(deci_y)
 
-    val_x = data_region[0] - (data_region[0] % inc_x )
-    val_y = data_region[1] - (data_region[1] % inc_y )
+    val_x = data_region[0] - (data_region[0] % inc_x)
+    val_y = data_region[1] - (data_region[1] % inc_y)
 
     if x_ticks:
       for i in range(int(round(delta_x_data/inc_x))+2):

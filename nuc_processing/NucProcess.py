@@ -49,11 +49,11 @@ PROG_NAME = 'nuc_process'
 VERSION = '1.1.1'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
-RE_SITES = {'MboI'   :'^GATC_',
-            'DpnII'  :'^GATC_',
-            'AluI'   :'AG^CT',
-            'BglII'  :'A^GATC_T',
-            'HindIII':'A^AGCT_T'}
+RE_SITES = {'MboI'   : '^GATC_',
+            'DpnII'  : '^GATC_',
+            'AluI'   : 'AG^CT',
+            'BglII'  : 'A^GATC_T',
+            'HindIII': 'A^AGCT_T'}
 QUAL_SCHEMES = ['phred33', 'phred64', 'solexa']
 DEFAULT_MIN_QUAL = 10
 QUAL_ZERO_ORDS = {'phred33':33, 'phred64':64, 'solexa':64}
@@ -853,7 +853,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
             excluded_groups.add(ambig_group)
             continue      
     
-        if (p1 <  re1_a_start < p2) or (p1 <  re1_a_end < p2): # Read A overshoots Re1 fragment end
+        if (p1 < re1_a_start < p2) or (p1 < re1_a_end < p2): # Read A overshoots Re1 fragment end
           count_write('overhang_re1', line)
 
         elif (p3 < re1_b_start < p4) or (p3 < re1_b_end < p4): # Read B overshoots Re1 fragment end
@@ -1001,8 +1001,8 @@ def pair_sam_lines(line1, line2):
   bits2 = int(read2[1])
   
   # Ignore non-alignments (and reads rejected due to -m 1 in Bowtie)
-  if ( bits1 & 0x4 ) or ( bits2 & 0x4 ):
-    return ( 0, 0 )
+  if (bits1 & 0x4) or (bits2 & 0x4):
+    return (0, 0)
       
   # The flag should now indicate this is paired-end data
   bits1 |= 0x1
@@ -1376,8 +1376,8 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
   readline1 = file_obj1.readline
   readline2 = file_obj2.readline
   
-  n_map1  = 0
-  n_map2  = 0
+  n_map1 = 0
+  n_map2 = 0
   n_pairs = 0
   n_ambig = 0
   n_unpaired = 0
@@ -1547,7 +1547,7 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
     cmd_args += ['--solexa-quals']
   
   n_reads = 0
-  n_uniq  = 0
+  n_uniq = 0
   n_unmap = 0
   n_ambig = 0
   
@@ -1893,7 +1893,7 @@ def get_chromo_re_fragments(fasta_file_objs, contig, sequence, re_site, cut_offs
     n = len(frag_seq)
     
     start = frag_start - offset_start
-    end   = frag_start + n + cut_offset # Offset is cut site, which can be in subseq removed during split
+    end = frag_start + n + cut_offset # Offset is cut site, which can be in subseq removed during split
     
     if not n:
       frag_start += site_len
@@ -2154,7 +2154,7 @@ def read_re_frag_file(file_path):
         frag_dict[contig] = []
         append = frag_dict[contig].append
  
-      append( (int(start), int(end), int(mappability)) )
+      append((int(start), int(end), int(mappability)))
       prev_contig = contig
     
     file_obj.close()
@@ -2218,7 +2218,7 @@ def index_genome(base_name, file_names, output_dir, indexer_exe='bowtie2-build',
     file_name = uncompress_gz_file(file_name)
     fasta_files.append(file_name)
 
-  fasta_file_str= ','.join(fasta_files)
+  fasta_file_str = ','.join(fasta_files)
 
   cmd_args = [indexer_exe, '-f']
   
@@ -2351,7 +2351,7 @@ def check_regular_file(file_path):
     return False, msg
   
   if os.stat(file_path).st_size == 0:
-    msg = 'File "%s" is of zero size '% file_path
+    msg = 'File "%s" is of zero size ' % file_path
     return False, msg
     
   if not os.access(file_path, os.R_OK):
@@ -3425,35 +3425,35 @@ if __name__ == '__main__':
   
   args = vars(arg_parse.parse_args())
   
-  fastq_paths   = args['i']
-  genome_index  = args['g']
+  fastq_paths = args['i']
+  genome_index = args['g']
   genome_index2 = args['g2']
-  re1           = args['re1']
-  re2           = args['re2']
-  sizes         = args['s']
-  num_cpu       = args['n']
-  min_rep       = args['r']
-  ambig         = args['a']
-  out_file      = args['o']
-  ambig_file    = args['oa']
-  report_file   = args['or']
-  align_exe     = args['b']
-  qual_scheme   = args['q']
-  min_qual      = args['qm']
-  g_fastas      = args['f']
-  g_fastas2     = args['f2']
-  is_pop_data   = args['p']
-  pair_tags     = args['pt']
-  remap         = args['m']
-  reindex       = args['x']
-  keep_files    = args['k']
-  lig_junc      = args['l']
-  zip_files     = args['z']
-  unique_map    = args['u']
-  sam_format    = args['sam']
-  verbose       = args['v']
-  homo_chromo   = args['hc']
-  num_copies   = args['c']
+  re1 = args['re1']
+  re2 = args['re2']
+  sizes = args['s']
+  num_cpu = args['n']
+  min_rep = args['r']
+  ambig = args['a']
+  out_file = args['o']
+  ambig_file = args['oa']
+  report_file = args['or']
+  align_exe = args['b']
+  qual_scheme = args['q']
+  min_qual = args['qm']
+  g_fastas = args['f']
+  g_fastas2 = args['f2']
+  is_pop_data = args['p']
+  pair_tags = args['pt']
+  remap = args['m']
+  reindex = args['x']
+  keep_files = args['k']
+  lig_junc = args['l']
+  zip_files = args['z']
+  unique_map = args['u']
+  sam_format = args['sam']
+  verbose = args['v']
+  homo_chromo = args['hc']
+  num_copies = args['c']
  
   if not num_copies:
     if homo_chromo:

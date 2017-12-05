@@ -269,7 +269,7 @@ def analyse_fastq_barcodes(fastq_paths, sample_names, analysis_file_path, bc_len
  
         if n_reads % 100000 == 0:
           levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
-          n_bc  = len(bc_counts)
+          n_bc = len(bc_counts)
           stdout.write("\r  Reads:{:,} BC seqs:{:,} - {}".format(n_reads, n_bc, levels))
           stdout.flush()
            
@@ -310,7 +310,7 @@ def analyse_fastq_barcodes(fastq_paths, sample_names, analysis_file_path, bc_len
  
         if n_reads % 100000 == 0:
           levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
-          n_bc  = len(bc_counts)
+          n_bc = len(bc_counts)
           stdout.write("\r  Reads:{:,} BC seqs:{:,} - {}".format(n_reads, n_bc, levels))
           stdout.flush()
  
@@ -590,7 +590,7 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
  
         if n_reads % 100000 == 0:
           levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
-          n_bc  = len(bc_counts)
+          n_bc = len(bc_counts)
           
           if max_mismatches:
             stdout.write("\r  Reads:{:,} Perfect:{:,} Imperfect:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_imperfect, n_bc, levels))
@@ -764,7 +764,7 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
  
         if n_reads % 100000 == 0:
           levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
-          n_bc  = len(bc_counts)
+          n_bc = len(bc_counts)
           
           if max_mismatches:
             stdout.write("\r  Reads:{:,} Perfect:{:,} Imperfect:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_imperfect, n_bc, levels))
@@ -883,15 +883,15 @@ if __name__ == '__main__':
   
   args = vars(arg_parse.parse_args())
   
-  fastq_paths  = args['i']
-  bc_length    = args['s'] or None # Not zero
-  out_dir      = args['o']
-  diff_ends    = args['d']
+  fastq_paths = args['i']
+  bc_length = args['s'] or None # Not zero
+  out_dir = args['o']
+  diff_ends = args['d']
   bc_file_path = args['b']
   an_file_path = args['a']
-  in_ill_head  = args['ih']
+  in_ill_head = args['ih']
   no_samp_name = args['nb']
   max_mismatch = args['m']
-  write_lost   = args['u']
+  write_lost = args['u']
   
   split_fastq_barcodes(fastq_paths, bc_file_path, an_file_path, out_dir, max_mismatch, bc_length, diff_ends, in_ill_head, no_samp_name, write_lost)
