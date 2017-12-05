@@ -454,8 +454,6 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
       s_a, n_a = chromo_offsets[chr_a]
       s_b, n_b = chromo_offsets[chr_b]      
       
-      #print chr_a, chr_b, n_a, n_b
-      
       for p_a, p_b, ag in contact_list:
         if chr_a != chr_b:
           if ('.' in chr_a) and ('.' in chr_b) and (chr_a.split('.')[0] == chr_b.split('.')[0]):
@@ -513,8 +511,6 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
     
   data[:,:,0] /= data[:,:,0].max() or 1.0
   data[:,:,1] /= data[:,:,1].max() or 1.0
-  
-  #data = data ** 0.5
   
   chromo_labels = []
   for chromo in chromos:

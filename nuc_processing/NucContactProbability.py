@@ -216,60 +216,6 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
     else:
       label = None
  
-    """
-    data_lists.append(zip(x_data, y_data))
-    colors.append('#000000')
-    names.append(label)
-    opacities.append(1.0)
- 
-    x1 = x_data[2]
-    y1 = y_data[2]
-    dy = 0.25
-
-    data_lists.append([(x1, y1+dy), (x1+1.5, y1+dy-1.50)])
-    colors.append('#808080')
-    names.append(None)
-    opacities.append(0.5)
- 
-    data_lists.append([(x1, y1-dy), (x1+1.5, y1-dy-2.25)])
-    colors.append('#808080')
-    names.append(None)
-    opacities.append(0.5)
-
-    x_range = np.arange(np.log10(bin_size), np.log10(x_limit), 0.5)
-    y_range = np.arange(y_min, y_max, 0.5)
-
-    svg_doc = NucSvg.SvgDocument()
- 
-    pad = 100
-    width = svg_width - pad
-    height = svg_width - pad
-    x_label = 'Sequence separation (bp)'
-    y_label = 'Contact probability (%d kb bins)' % (bin_size/1000)
-    title = 'Contact sequence separations'
-    texts = [(u'\u03bb=1.0', '#808080', (x1+1.5, y1+dy-1.50)),
-             (u'\u03bb=1.5', '#808080', (x1+1.5, y1-dy-2.25))]
- 
-    svg_doc.graph(0, 0, width, height, data_lists, x_label, y_label,
-              names=names, colors=colors,  graph_type=NucSvg.LINE_TYPE,
-              symbols=None, line_widths=None, symbol_sizes=None,
-              legend=(6.4, -6.0),
-              title=title, x_labels=None, plot_offset=(pad, pad),
-              axis_color='black', bg_color='#F0F0F0', font=None, font_size=16, line_width=1,
-              x_ticks=True, y_ticks=True, x_grid=False, y_grid=False,
-              texts=texts, opacities=opacities,
-              x_log_base='10', y_log_base='10')
- 
-    if svg_path == '-':
-      print(svg_doc.svg(svg_width, svg_width))
- 
-    elif svg_path:
-      svg_doc.write_file(svg_path, svg_width, svg_width)
-
-    else:
-      return svg_doc.svg(svg_width, svg_width)
-    """
- 
     if multi_set:
       ax.plot(x_data, y_data, label=label, color=COLORS[g], linewidth=1, alpha=0.5)
     

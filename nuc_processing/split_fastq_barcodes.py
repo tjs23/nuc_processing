@@ -462,7 +462,6 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
  
         if in_illumina_head:
           barcode_1, barcode_2 = line_1a.strip().split(':')[-1].split('+')
-          #barcode_2 = line_2a.strip().split(':')[-1].split('+')[1]
         
         else:
           barcode_1 = line_1b[:bc_length]

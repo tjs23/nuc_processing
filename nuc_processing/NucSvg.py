@@ -282,8 +282,6 @@ class SvgDocument(object):
         if y0 > pr1:
           continue  
         
-        #y0 = max(pr3, min(pr1, y0,) )
-        
         coords_append((x0,y0,e1,e2))
 
     return coords
@@ -415,9 +413,6 @@ class SvgDocument(object):
     
     c_matrix = color_func(c_matrix)
     
-    #print c_matrix.shape
-    #print c_matrix[:5,:5]
-                
     self.rect((x1, y1, x2, y2), color=line_color, fill=bg_color)
     
     self.image(x1, y1, width, height, c_matrix)
@@ -448,7 +443,7 @@ class SvgDocument(object):
         
         x = x1 + x_box/2.0 + x * x_box
         
-        if rotate_large_labels: #  and (len(t) > 3):
+        if rotate_large_labels:
           self.text(t, (x-font_size/4, y3), anchor='start', size=font_size-2, bold=False, font=font, color=line_color, angle=90, vert_align=None)
         
         else:
@@ -468,7 +463,7 @@ class SvgDocument(object):
         y = min(float(n), max(0.0, y))
         y = y1 + y_box/2.0 + y * y_box
         
-        if rotate_large_labels:#  and (len(t) > 3):
+        if rotate_large_labels:
           self.text(t, (x3, y+font_size/4), anchor='end', size=font_size-2, bold=False, font=font, color=line_color, angle=None, vert_align=None)
         
         else:
@@ -924,8 +919,6 @@ class SvgDocument(object):
     
     x, y, = x0, y0
     
-    #self.group_start()   
-    
     self.line((x, y, x+width, y), color=line_color, line_width=1)
     
     for i, row in enumerate(data):
@@ -963,8 +956,6 @@ class SvgDocument(object):
     y += pad
         
     self.line((x, y, x+width, y), color=line_color, line_width=1)
-    
-    #self.group_end()
     
     return width, y-y0
 

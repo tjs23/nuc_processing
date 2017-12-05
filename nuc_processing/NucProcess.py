@@ -506,7 +506,6 @@ def remove_redundancy(ncc_file, min_repeats=2, keep_files=True, zip_files=False,
   n_pairs = 0
   mean_redundancy = 0.0
   
-  # chr_a, f_start_a, f_end_a, start_a, end_a, strand_a, chr_b, f_start_b, f_end_b, start_b, end_b, strand_b, ambig_group, pair_id, swap_pair = line.split()
   # Compare using strand information given we want to know which fragment END is used
   if use_re_fragments:
     ncc_idx = (0,1,5,6,7,11) # Compare on RE fragment: chr_a, f_start_a, strand_a, chr_b, f_start_b, strand_b
@@ -793,11 +792,6 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
                          chr_name_b, start_b, end_b, re1_b_start, re1_b_end, strand_b,
                          ambig_group, int(pair_id), int(swap_pair))
  
-    ##if (mappability_a < min_mappability) or (mappability_b < min_mappability):
-    ##  count_write('low_mappability', line)
-    ##  # Not currently excluding ambiguity group as others should be somewhat more detectable
-    ##  continue
-         
     if re2_files:
       # Check Read is at the end of different RE2 fragments
       # Note: modulo is due to circular chromosomes
@@ -812,11 +806,6 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
  
       re2_a_start, re2_a_end, mappability_re2_a = re2_frag_dict[chr_a][re2_a_idx] 
       re2_b_start, re2_b_end, mappability_re2_b = re2_frag_dict[chr_b][re2_b_idx]
-        
-      ##if (mappability_re2_a < min_mappability) or (mappability_re2_b < min_mappability):
-      ##  count_write('low_mappability', line)
-      ##  # Not currently excluding ambiguity group as others should be somewhat more detectable
-      ##  continue
 
       if pos_strand_a:
         delta_re2_a = start_a - re2_a_start  # separation from 5'
@@ -936,10 +925,10 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
   counts['accepted'] -= counts['excluded_ambig_group']
   
   #
-      
+
   for tag in out_file_objs:
     out_file_objs[tag].close()
-     
+
   n = counts['input_pairs']
   stats_list = []
   for key in ('input_pairs', 'accepted', 'near_cis_pairs', 'far_cis_pairs', 'trans_pairs',
@@ -969,8 +958,6 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
   
   os.unlink(filter_file_temp)
   
-  #move(filter_file_temp, filter_file)
-  
   return filter_file, out_file_names
     
     
@@ -982,20 +969,20 @@ def pair_sam_lines(line1, line2):
   read1 = line1.split('\t')
   read2 = line2.split('\t')
   
-  #Relevant bitwise flags (flag in an 11-bit binary number)
-  #1 The read is one of a pair
-  #2 The alignment is one end of a proper paired-end alignment
-  #4 The read has no reported alignments
-  #8 The read is one of a pair and has no reported alignments
-  #16 The alignment is to the reverse reference strand
-  #32 The other mate in the paired-end alignment is aligned to the reverse reference strand
-  #64 The read is the first (#1) mate in a pair
-  #128 The read is the second (#2) mate in a pair
+  # Relevant bitwise flags (flag in an 11-bit binary number)
+  # 1 The read is one of a pair
+  # 2 The alignment is one end of a proper paired-end alignment
+  # 4 The read has no reported alignments
+  # 8 The read is one of a pair and has no reported alignments
+  # 16 The alignment is to the reverse reference strand
+  # 32 The other mate in the paired-end alignment is aligned to the reverse reference strand
+  # 64 The read is the first (#1) mate in a pair
+  # 128 The read is the second (#2) mate in a pair
 
-  #The reads were mapped as single-end data, so should expect flags of
-  #0 (map to the '+' strand) or 16 (map to the '-' strand)
-  #Output example: a paired-end read that aligns to the reverse strand
-  #and is the first mate in the pair will have flag 83 (= 64 + 16 + 2 + 1)
+  # The reads were mapped as single-end data, so should expect flags of
+  # 0 (map to the '+' strand) or 16 (map to the '-' strand)
+  # Output example: a paired-end read that aligns to the reverse strand
+  # and is the first mate in the pair will have flag 83 (= 64 + 16 + 2 + 1)
   
   bits1 = int(read1[1])
   bits2 = int(read2[1])
@@ -1249,9 +1236,6 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, unpair_p
             break
           
       # If all internal sections of any end unmappable across genomes, then skip
-      #if (unpairable[0] or unpairable[3]) and (unpairable[1] or unpairable[2]):
-      #  n_unpairable += 1
-      #  continue
                
       n0 = len(contacts[0])
       n1 = len(contacts[1])
@@ -1369,7 +1353,6 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
   ambig_ncc_file = open(ambig_ncc_file_name_temp, 'w')
   write_ambig = ambig_ncc_file.write
     
-  #sort_sam_file1 = _sort_sam_file_ids(sam_file1) # Only needed if Bowtie2 does not use --reorder option
   file_obj1 = open_file_r(sam_file1)
   file_obj2 = open_file_r(sam_file2)
      
@@ -1531,7 +1514,6 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
               '-D', '20', '-R', '3', '-N', '0',  '-L', '20',  '-i', 'S,1,0.50',
               '-x', genome_index,
               '-k', '2',
-              #'--min-score', 'L,-0.8,-0.8',
               '--reorder',
               '-p', str(num_cpu),
               '-U', fastq_file,
@@ -1564,7 +1546,6 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
     for line in std_err.split('\n'):
       
       if line.strip():
-        #info('  ' + line)
  
         match = patt_1.search(line)
         if match:
@@ -2069,8 +2050,6 @@ def check_re_frag_file(genome_index, re_name, genome_fastas, align_exe, num_cpu,
                 '-p', str(num_cpu),
                 '-f', '-U', fasta_file_name,
                 '-S', sam_file_path]  # Include unaligned fragments, naturally
- 
-    #print cmd_args
  
     proc = Popen(cmd_args, stdin=PIPE, stderr=PIPE)
     std_out, std_err = proc.communicate()

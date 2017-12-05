@@ -14,7 +14,6 @@ def readNextFourLines(fp):
 def writeLines(fp, lines, barcodeLen):
 
   n = barcodeLen + 1
-  #n = barcodeLen
   fp.write(lines[0])
   fp.write(lines[1][n:])
   fp.write(lines[2])
