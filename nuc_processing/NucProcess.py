@@ -342,7 +342,6 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
         remove.add(re_start)
         for re_end in re_ends: # All associated ambiguity groups annuled
           remove_ambig_group.add(re_end[3])
-        
   
   in_file_obj.seek(0)
   for line in in_file_obj:
@@ -469,7 +468,6 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=100000):
   
   return stats
 
-  
  
 def remove_redundancy(ncc_file, min_repeats=2, keep_files=True, zip_files=False, use_re_fragments=True, ambig=False):
   
@@ -710,8 +708,6 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
     if keep_files or (tag == 'accepted'):
       write_funcs[tag](line) 
   
-    
-    
   in_file_obj = open_file_r(pair_ncc_file)
   excluded_groups = set()
 
@@ -1307,7 +1303,6 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, unpair_p
             for ncc_b, score_b in contacts[end_b]:
               _write_ncc_line(ncc_a, ncc_b, n_pairs, iid, write_func)
  
- 
   ncc_file_obj.close()
     
   stats = [('end_1A_alignments', n_map[0]),
@@ -1535,7 +1530,6 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   
     if 'Error' in std_err:
       warn(std_err)
-    
     
     for line in std_err.split('\n'):
       
@@ -1766,7 +1760,6 @@ def get_hybrid_unpairable(fasta_files, genome_index_1, genome_index_2, hom_chrom
         
         out_file_obj = open(fasta_file_name, 'w')
         write = out_file_obj.write
-        
         
         i = 0
         
@@ -2071,7 +2064,6 @@ def check_re_frag_file(genome_index, re_name, genome_fastas, align_exe, num_cpu,
     os.unlink(sam_file_path)
     os.unlink(fasta_file_name)
 
-  
   # Add mappability
     
   for contig in contigs:
@@ -2083,7 +2075,6 @@ def check_re_frag_file(genome_index, re_name, genome_fastas, align_exe, num_cpu,
   out_file_obj = open(re_site_file, 'w')
   head = 'Source\tContig\tFrag_Start\tFrag_End\tMappability\n'
   out_file_obj.write(head)
-  
   
   for contig in contigs:
     source = sources[contig]
@@ -2426,7 +2417,6 @@ def pair_fastq_files(fastq_paths, pair_tags=('r_1','r_2'), err_msg='Could not pa
   return fastq_paths_r1, fastq_paths_r2
 
 
-
 def is_interrupted_job():
 
   if STAT_FILE_PATH and os.path.exists(STAT_FILE_PATH):
@@ -2501,6 +2491,7 @@ def get_fastq_qual_scheme(file_path):
 
   return scheme
 
+
 def write_report(report_file, second_genome=None):
   
   with open(STAT_FILE_PATH) as file_obj:
@@ -2551,7 +2542,6 @@ def write_report(report_file, second_genome=None):
       l.append([c1, c2, c3])
     
     return l
-  
   
   def pie_values(data, names):
     
@@ -2672,8 +2662,6 @@ def write_report(report_file, second_genome=None):
     svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
     y += th
 
-  
-  
   y += head_height
   svg_doc.text('Pairing reads', (x,y), head_size, bold=True, color=head_color)
 
@@ -3131,7 +3119,6 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
     
   # Create RE fragments file if not present
 
-  
   re1_files = [check_re_frag_file(genome_index, re1, g_fastas, align_exe, num_cpu, remap=remap)]
   re2_files = []
   
@@ -3147,12 +3134,10 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
     unpair_path1 = get_hybrid_unpairable(g_fastas, genome_index, genome_index2, hom_chromo_dict, align_exe, num_cpu)
     unpair_path2 = get_hybrid_unpairable(g_fastas2, genome_index2, genome_index, hom_chromo_dict, align_exe, num_cpu)
 
-
   # Clip read seqs at any sequenced ligation junctions
   info('Clipping FASTQ reads...')
   clipped_file1 = clip_reads(fastq_paths[0], intermed_file_root, lig_junc, re1Seq, qual_scheme, min_qual)
   clipped_file2 = clip_reads(fastq_paths[1], intermed_file_root, lig_junc, re1Seq, qual_scheme, min_qual, is_second=True)
-  
   
   # Do the main genome mapping
   info('Mapping FASTQ reads...') 
@@ -3182,7 +3167,6 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
     if ambig:
       write_sam_file(ambig_paired_ncc_file, sam_file1, sam_file2)
   
-  
   # Filtering
   info('Filtering mapped sequences...')
                    
@@ -3207,7 +3191,6 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
  
       for key in fail_file_names:
         write_sam_file(ambig_fail_file_names[key], sam_file1, sam_file2)
-      
   
   # Redundancy reduction and promiscuity checks not relevant for population data
   # where multiple observations from and between the same RE fragments are expected
@@ -3290,7 +3273,6 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
   info('Nuc Process all done.')
     
   return out_file
-  
 
 
 if __name__ == '__main__':
@@ -3454,7 +3436,6 @@ if __name__ == '__main__':
                 qual_scheme, min_qual, g_fastas, g_fastas2, is_pop_data, remap, reindex, keep_files,
                 lig_junc, zip_files, sam_format, verbose)
  
-    
   # Required:
   #  - Output CSV report file option
   # 

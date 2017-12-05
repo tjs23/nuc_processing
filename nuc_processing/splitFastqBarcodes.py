@@ -1,5 +1,6 @@
 import os, sys
 
+
 def readNextFourLines(fp):
 
   lines = []
@@ -11,6 +12,7 @@ def readNextFourLines(fp):
 
   return lines
 
+
 def writeLines(fp, lines, barcodeLen):
 
   n = barcodeLen + 1
@@ -18,6 +20,7 @@ def writeLines(fp, lines, barcodeLen):
   fp.write(lines[1][n:])
   fp.write(lines[2])
   fp.write(lines[3][n:])
+
 
 def main(inputFile1, inputFile2, outputDirectory, barcodeLen=3):
 
@@ -93,6 +96,7 @@ def main(inputFile1, inputFile2, outputDirectory, barcodeLen=3):
   for barcode in sorted(barcodeCount):
     count = barcodeCount[barcode]
     print('barcode "%s" = %d (%.1f%%)' % (barcode, count, 100*count/total))
+
 
 if __name__ == '__main__':
   

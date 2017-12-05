@@ -47,7 +47,8 @@ DESCRIPTION = 'A Python script to split FASTQ files, both paired or single-end, 
 IO_BUFFER = int(4e6)
 ANALYSIS_TAG = 'bc_report'
 COUNT_LEVELS = (1000000, 100000, 10000, 1000, 100)
- 
+
+
 def check_regular_file(file_path):
 
   msg = ''
@@ -313,7 +314,6 @@ def analyse_fastq_barcodes(fastq_paths, sample_names, analysis_file_path, bc_len
   stdout.write("\n") # move the cursor to the next line
   
   _write_analysis_file(bc_counts, sample_names, analysis_file_path)
-  
   
 
 def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None, out_dir=None, max_mismatches=0,
@@ -625,7 +625,6 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
       lost_file_obj_1.close()
       lost_file_obj_2.close()
 
-
   else: # Single-end reads: one file
     fastq_path_1 = fastq_paths[0]
     file_name_1 = os.path.basename(fastq_path_1)
@@ -707,7 +706,6 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
                   if m <= max_mismatches:
                     poss_2.append(bc)
  
-              
               if len(poss_2) == 1:
                 bc_key = '%s-%s' % (poss_1[0], poss_2[0])
                 n_imperfect += 1
@@ -721,7 +719,6 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
         else:
           valid = False
 
-        
         if valid:
           out_data_1[bc_key] += [line_1a+line_1b[start_idx:]+line_1c+line_1d[start_idx:]]
           n_buff[bc_key] += 1
@@ -839,7 +836,6 @@ if __name__ == '__main__':
   # GZIP output?
   # Use Illumina contents file?
   # Quality based truncation? Trim short?
-  
   
   epilog = 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
  

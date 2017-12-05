@@ -48,18 +48,16 @@ VERSION = '1.1.0'
 DESCRIPTION = 'Chromatin contact (NCC format) Hi-C contact map display module for Nuc3D and NucTools'
 DEFAULT_BIN_SIZE = 5 # Megabases
 
-def info(msg, prefix='INFO'):
 
+def info(msg, prefix='INFO'):
   print('%8s : %s' % (prefix, msg))
 
 
 def warn(msg, prefix='WARNING'):
-
   print('%8s : %s' % (prefix, msg))
 
 
 def fatal(msg, prefix='%s FAILURE' % PROG_NAME):
-
   print('%8s : %s' % (prefix, msg))
   sys.exit(0)
 
@@ -133,6 +131,7 @@ def _get_trans_dev(trans_counts):
     score_cat = '?'
 
   return dev, score_cat
+
 
 def _get_num_isolated(positions, threshold=500000):
   
@@ -212,7 +211,6 @@ def _get_num_isolated_groups(positions, threshold=500000, pos_err=100):
       
       if close:
         break
-      
         
     if not close:
       num_isolated += 1
@@ -331,7 +329,6 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
     min_contig_size = int(min_contig_size * 1e6)
   else:
     min_contig_size = bin_size
-  
   
   if svg_tag == '-':
     svg_path = '-'
@@ -506,7 +503,6 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
       chromo = chromo[3:]
     
     chromo_labels.append((pos, chromo))
-  
   
   # Make SVG  
   offset = 64

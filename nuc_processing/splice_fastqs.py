@@ -43,6 +43,7 @@ VERSION = '1.0.1'
 DESCRIPTION = 'A Python script to join sequence and quality data (e.g. barcodes to genomic sequence) in two ordered FASTQ files'
 IO_BUFFER = int(4e6)
 
+
 def open_file(file_path, mode=None, gzip_exts=('.gz','.gzip')):
   """
   GZIP agnostic file opening

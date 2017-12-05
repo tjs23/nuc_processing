@@ -58,6 +58,7 @@ DEFAULT_COLORS = ['#800000','#000080',
                   '#808080','#000000',
                   '#804000','#004080']
 
+
 class SvgDocument(object):
 
   def __init__(self, font='Arial'):
@@ -65,16 +66,13 @@ class SvgDocument(object):
     self.font = font
     self._svg_lines = []
     
-    
   def clear(self):
     
     self._svg_lines = []
   
-  
   def svg(self, width, height):
     
     return ''.join(self._svg_head(width, height) + self._svg_lines + self._svg_tail())
-    
   
   def write_file(self, file_name, width, height):
     
@@ -98,23 +96,19 @@ class SvgDocument(object):
     
     return [head1, head2]
     
-
   def _svg_tail(self):
 
     return ['</svg>\n']
 
- 
   def group_start(self, opacity=1.0, stroke='black', stroke_opacity=1.0, width=1):
  
     data = (opacity, stroke_opacity, stroke, width)
  
     self._svg_lines += ['  <g style="fill-opacity:%.1f; stroke-opacity:%.1f; stroke:%s; stroke-width:%d;">\n' % data]
     
-  
   def group_end(self):
  
     self._svg_lines.append('  </g>\n')
-
 
   def poly(self, coords, color='black', fill='blue', width=1):
   
@@ -126,7 +120,6 @@ class SvgDocument(object):
     line = '    <path d="%s" fill="%s" stroke="%s" stroke-width="%d" />\n' % (' '.join(path), fill, color, width)
     self._svg_lines.append(line)
     
-
   def lines(self, coords, color='black', width=1):
   
     path = ['M']
@@ -138,13 +131,11 @@ class SvgDocument(object):
     
     self._svg_lines.append(line)
 
-
   def line(self, coords, color='black', line_width=1):
   
     x1, y1, x2, y2 = coords
     line = '     <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%.2fpx" />\n' % (x1, y1, x2, y2, color, line_width)
     self._svg_lines.append(line)
-    
     
   def circle(self, center, radius, color='black', fill='#808080'):
 
@@ -154,7 +145,6 @@ class SvgDocument(object):
     
     line = '     <circle cx="%d" cy="%d" r="%d" stroke="%s" fill="%s" />\n' % (x,y,radius,color,fill)
     self._svg_lines.append(line)
-
 
   def rect(self, coords, color='black', fill='#808080'):
 
@@ -167,7 +157,6 @@ class SvgDocument(object):
     line = '     <rect x="%d" y="%d" height="%d" width="%d" stroke="%s" fill="%s" />\n' % (x,y,h,w,color,fill)
     self._svg_lines.append(line)
 
-
   def square(self, center, radius, color='black', fill='#808080'):
 
     cx, cy = center
@@ -176,7 +165,6 @@ class SvgDocument(object):
     r = 2*radius
     line = '     <rect x="%d" y="%d" height="%d" width="%d" stroke="%s" fill="%s" />\n' % (x,y,r,r,color,fill)
     self._svg_lines.append(line)
-
 
   def text(self, text, coords, anchor='start', size=16, bold=False, font=None, color=None, angle=None, vert_align=None, sup=None):
     
@@ -199,17 +187,13 @@ class SvgDocument(object):
     if bold:
       attrs += ' font-weight="bold"'
     
-    
-    
     if sup:
       sup = '<tspan font-size="%d" dy="%s">%s</tspan>\n' % ((2*size)/3,-size/2,sup)
-
     else:
       sup = ''
     
     text = saxutils.escape(text)
     line = '     <text x="%d" y="%d" text-anchor="%s" font-family="%s" font-size="%d"%s>%s%s</text>\n' % (x,y,anchor,font,size,attrs,text,sup)
-      
       
     self._svg_lines.append(line)
 
@@ -234,7 +218,6 @@ class SvgDocument(object):
     line = '    <path d="%s" fill="%s" stroke="%s" stroke-width="%d" />\n' % (path, fill, color, line_width)
     self._svg_lines.append(line)
   
-  
   def image(self, x, y, w, h, data):
   
     io = bytes_io()
@@ -245,7 +228,6 @@ class SvgDocument(object):
     line = '     <image x="%d" y="%d" width="%d" height="%d" xlink:href="data:image/png;base64,%s" />\n' % (x, y, w, h, base_64_data)
      
     self._svg_lines.append(line)
-      
       
   def _graph_get_draw_coords(self, data_points, data_region, plot_region):
 
@@ -286,7 +268,6 @@ class SvgDocument(object):
 
     return coords
  
- 
   def _graph_check_points(self, points):
     
     x_min = x_max = points[0][0]
@@ -301,7 +282,6 @@ class SvgDocument(object):
       x_max = max(x, x_max)
       y_max = max(y, y_max)
      
-      
       if len(point) == 2:
         e = None
       else:
@@ -338,7 +318,6 @@ class SvgDocument(object):
     rgbP = np.array(self._hex_to_rgb(pos_color), float)
     rgbN = np.array(self._hex_to_rgb(neg_color), float)
     
-    
     for i in range(n):
       for j in range(m):
         f = matrix[i,j]
@@ -358,7 +337,6 @@ class SvgDocument(object):
     color_matrix = np.array(color_matrix, dtype=np.uint8)
   
     return color_matrix
-    
   
   def density_matrix(self, matrix, width, height=None, x_grid=None, y_grid=None,
                      x_labels=None, y_labels=None, x_axis_label=None, y_axis_label=None, 
@@ -478,7 +456,6 @@ class SvgDocument(object):
       
       y3 += pad 
       self.text(x_axis_label, (x, y3), anchor='middle', size=font_size, bold=False, font=font, color=line_color, angle=None, vert_align=None)
-    
 
     if y_axis_label:
       y = n/2.0
@@ -487,9 +464,6 @@ class SvgDocument(object):
       x3 -= pad 
       self.text(y_axis_label, (x3, y), anchor='middle', size=font_size, bold=False, font=font, color=line_color, angle=270, vert_align=None)
     
-         
-         
-         
   def graph(self, x, y, width, height, data_lists, x_label, y_label,
             names=None, colors=None,  graph_type=LINE_TYPE,
             symbols=None, line_widths=None, symbol_sizes=None,
@@ -624,7 +598,6 @@ class SvgDocument(object):
         draw_coords = self._graph_get_draw_coords([(x, y, None)], data_region, plot_region)
         x, y = draw_coords[0][:2]
         self.text(text, (x+(font_size/2), y), color=color, vert_align='middle')
-       
   
   def _graph_draw_boxes(self, coords, color, plot_region):
   
@@ -642,7 +615,6 @@ class SvgDocument(object):
       x2 = x + width
       y2 = y
       self.rect((x1,y1,x2,y2), color='#000000', fill=color)
-  
   
   def _graph_draw_symbols(self, coords, color, symbol, symbol_size, fill='#808080'):
   
@@ -693,7 +665,6 @@ class SvgDocument(object):
           self.line((x0,yL,x1,yL), color=color)
          
         self.circle((x0, y0), radius, color=color, fill=color)
- 
  
   def _graph_draw_ticks(self, data_region, plot_region, x_label, y_label,
                         line_width=1, x_ticks=True, y_ticks=True,
@@ -824,7 +795,6 @@ class SvgDocument(object):
 
     if y_label:
       self.text(y_label, (xt-65,((y0+y1)/2.0)), angle=-90, anchor='middle')
-   
 
   def pie_chart(self, x, y, height, values, texts=None, colors=None, line_color='black', small_val=0, line_width=1, box_size=16, pad=4):
     
@@ -877,7 +847,6 @@ class SvgDocument(object):
       if other:
         self.rect((x1, y1, x1+box_size, y1-box_size), color=line_color, fill=colors[c%nc])
         self.text('Other', (x1+box_size+pad, y1-2), anchor='start', size=box_size)
-    
   
   def table(self, x0, y0, width, data, header=True, text_anchors=None, col_formats=None,
             size=16, pad=2, font=None, main_color='black', line_color='#808080'):
@@ -950,6 +919,7 @@ class SvgDocument(object):
     self.line((x, y, x+width, y), color=line_color, line_width=1)
     
     return width, y-y0
+
 
 if __name__ == '__main__':
 

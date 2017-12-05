@@ -46,6 +46,7 @@ PROG_NAME = 'nuc_stats'
 VERSION = '1.0.0'
 DESCRIPTION = 'Script to aggregate statistics for different single-cell Hi-C datasets from .json and .ncc files'
 
+
 def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_path=None):
 
   paired_files = {}
@@ -132,7 +133,6 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
                   'low_mappability', 'unknown_contig'):
         
         n_other += filter_stats[key][0]
-      
   
       n_unmapped_end, n_pairs = pair_stats['unmapped_end']
       n_unique_map = pair_stats['unique'][0]
@@ -238,7 +238,6 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
   if text_file_path or not quiet:
     lines = []
     blank = ' ' * 24
- 
  
     lines.append(blank + ' | %s' % h1)
     head = ['%-24s' % cols1[0]] + ['%12s' % x for x in cols1[1:]]
@@ -358,7 +357,6 @@ if __name__ == '__main__':
   arg_parse.add_argument('-t', '--pretty_file',metavar='OUT_TEXT_FILE', dest='t',
                          help='Output file path to save report in a pretty text format')    
 
-  
   args = vars(arg_parse.parse_args())
   
   json_paths = args['j']

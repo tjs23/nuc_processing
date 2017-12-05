@@ -48,18 +48,16 @@ READ_BUFFER = 2**16
 
 COLORS = ['#0040FF','#FF0000','#B0B000','#808080']
 
-def info(msg, prefix='INFO'):
 
+def info(msg, prefix='INFO'):
   print('%8s : %s' % (prefix, msg))
 
 
 def warn(msg, prefix='WARNING'):
-
   print('%8s : %s' % (prefix, msg))
 
 
 def fatal(msg, prefix='%s FAILURE' % PROG_NAME):
-
   print('%8s : %s' % (prefix, msg))
   sys.exit(0)
   
@@ -157,7 +155,6 @@ def plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size=100, svg_widt
         
         seq_seps_all += seps
         weights_all += prob
-
 
     seq_seps_all = np.array(seq_seps_all)
  
@@ -310,6 +307,5 @@ if __name__ == '__main__':
   if not file_name.lower().endswith('.svg'):
     if svg_path != '-':
       svg_path = svg_path + '.svg'
-  
   
   plot_contact_probability_seq_sep(ncc_paths, svg_path, bin_size, svg_width, labels)

@@ -37,6 +37,7 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 import sys
 import os
 
+
 def demultiplex(barcode_file, fastq_paths, buff_size=10000):
   """
   Script to separate single-cell data from the combined massively multiplexed Hi-C
