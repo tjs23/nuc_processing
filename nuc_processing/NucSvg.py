@@ -952,9 +952,11 @@ if __name__ == '__main__':
 
   labels = list('ABCDEFGHIJ')
 
-  svg_doc.density_matrix(data, 500, 500, x_grid=[5.0], y_grid=[5.0],
-                   x_labels=labels, y_labels=labels, x_axis_label='X axis', y_axis_label='Y axis',
-                   font=None, font_size=16, line_width=1, plot_offset=(50, 50),
-                   value_range=None, scale_func=None)
+  svg_doc.density_matrix(
+    data, 500, 500, x_grid=[5.0], y_grid=[5.0],
+    x_labels=labels, y_labels=labels, x_axis_label='X axis', y_axis_label='Y axis',
+    font=None, font_size=16, line_width=1, plot_offset=(50, 50),
+    value_range=None, scale_func=None
+  )
 
   svg_doc.write_file('Test_chart.svg', height, height)

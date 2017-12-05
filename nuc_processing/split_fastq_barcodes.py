@@ -840,7 +840,7 @@ if __name__ == '__main__':
   epilog = 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
 
   arg_parse = ArgumentParser(prog=PROG_NAME, description=DESCRIPTION,
-                            epilog=epilog, prefix_chars='-', add_help=True)
+                             epilog=epilog, prefix_chars='-', add_help=True)
 
   arg_parse.add_argument('i', nargs='+', metavar='FASTQ_FILE(S)',
                          help='One or two input FASTQ files to process. If two files are input they are assumed to be paired reads with matching rows. Accepts wildcards that match two files')

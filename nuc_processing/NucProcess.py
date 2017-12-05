@@ -354,9 +354,9 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
     strand_b = line_data[11]
     ambig_group = line_data[12]
 
-    if (ambig_group in remove_ambig_group) \
-        or ((chr_a, f_start_a, strand_a) in remove) \
-        or ((chr_b, f_start_b, strand_b) in remove):
+    if ((ambig_group in remove_ambig_group)
+        or ((chr_a, f_start_a, strand_a) in remove)
+        or ((chr_b, f_start_b, strand_b) in remove)):
       n_promiscuous += 1
 
       if keep_files:
@@ -1097,8 +1097,10 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, unpair_p
   paired_ncc_file_name_temp = paired_ncc_file_name + TEMP_EXT
   ambig_ncc_file_name_temp = ambig_ncc_file_name + TEMP_EXT
 
-  if INTERRUPTED and os.path.exists(paired_ncc_file_name) and os.path.exists(ambig_ncc_file_name) \
-      and not os.path.exists(paired_ncc_file_name_temp) and not os.path.exists(ambig_ncc_file_name_temp):
+  if (INTERRUPTED and os.path.exists(paired_ncc_file_name)
+      and os.path.exists(ambig_ncc_file_name)
+      and not os.path.exists(paired_ncc_file_name_temp)
+      and not os.path.exists(ambig_ncc_file_name_temp)):
     return paired_ncc_file_name, ambig_ncc_file_name
 
   # Load a list of unpairable hybrid segments
@@ -1330,8 +1332,10 @@ def pair_mapped_seqs(sam_file1, sam_file2, file_root, ambig=True, unique_map=Fal
   paired_ncc_file_name_temp = paired_ncc_file_name + TEMP_EXT
   ambig_ncc_file_name_temp = ambig_ncc_file_name + TEMP_EXT
 
-  if INTERRUPTED and os.path.exists(paired_ncc_file_name) and os.path.exists(ambig_ncc_file_name) \
-      and not os.path.exists(paired_ncc_file_name_temp) and not os.path.exists(ambig_ncc_file_name_temp):
+  if (INTERRUPTED and os.path.exists(paired_ncc_file_name)
+      and os.path.exists(ambig_ncc_file_name)
+      and not os.path.exists(paired_ncc_file_name_temp)
+      and not os.path.exists(ambig_ncc_file_name_temp)):
     return paired_ncc_file_name, ambig_ncc_file_name
 
   ncc_file_obj = open(paired_ncc_file_name_temp, 'w')
@@ -3075,29 +3079,30 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
   else:
     size_str = '%d - %d' % tuple(sizes)
 
-  general_stats = [('Input FASTQ file 1', fastq_paths[0]),
-                   ('Input FASTQ file 2', fastq_paths[1]),
-                   ('Homolog chrom. file', homo_chromo or 'None'),
-                   ('Output file (main)',os.path.abspath(out_file)),
-                   ('Output file (ambiguous)',os.path.abspath(ambig_file) if ambig_file else 'None'),
-                   ('Report file',os.path.abspath(report_file)),
-                   ('Intermediate file directory',os.path.abspath(intermed_dir)),
-                   ('Aligner executable',align_exe),
-                   ('Genome indices',', '.join(genome_indices)),
-                   ('FASTQ quality scheme',qual_scheme),
-                   ('Minimum 3\' FASTQ quaility',min_qual),
-                   ('RE1 site',re1),
-                   ('RE2 site',(re2 or 'None')),
-                   ('Ligation junction',lig_junc),
-                   ('Molecule size range',size_str),
-                   ('Min sequencing repeats',min_rep),
-                   ('Parallel CPU cores',num_cpu),
-                   ('Keep intermediate files?', 'Yes' if keep_files else 'No'),
-                   ('Input is single-cell Hi-C?', 'No' if is_pop_data else 'Yes'),
-                   ('Strict mapping only?', 'Yes' if unique_map else 'No'),
-                   ('SAM output?', 'Yes' if sam_format else 'No'),
-                   ('GZIP output?', 'Yes' if zip_files else 'No'),
-                  ]
+  general_stats = [
+    ('Input FASTQ file 1', fastq_paths[0]),
+    ('Input FASTQ file 2', fastq_paths[1]),
+    ('Homolog chrom. file', homo_chromo or 'None'),
+    ('Output file (main)',os.path.abspath(out_file)),
+    ('Output file (ambiguous)',os.path.abspath(ambig_file) if ambig_file else 'None'),
+    ('Report file',os.path.abspath(report_file)),
+    ('Intermediate file directory',os.path.abspath(intermed_dir)),
+    ('Aligner executable',align_exe),
+    ('Genome indices',', '.join(genome_indices)),
+    ('FASTQ quality scheme',qual_scheme),
+    ('Minimum 3\' FASTQ quaility',min_qual),
+    ('RE1 site',re1),
+    ('RE2 site',(re2 or 'None')),
+    ('Ligation junction',lig_junc),
+    ('Molecule size range',size_str),
+    ('Min sequencing repeats',min_rep),
+    ('Parallel CPU cores',num_cpu),
+    ('Keep intermediate files?', 'Yes' if keep_files else 'No'),
+    ('Input is single-cell Hi-C?', 'No' if is_pop_data else 'Yes'),
+    ('Strict mapping only?', 'Yes' if unique_map else 'No'),
+    ('SAM output?', 'Yes' if sam_format else 'No'),
+    ('GZIP output?', 'Yes' if zip_files else 'No'),
+  ]
 
   log_report('general', general_stats)
 
@@ -3285,7 +3290,7 @@ if __name__ == '__main__':
   avail_quals = 'Available: ' + ', '.join(QUAL_SCHEMES)
 
   arg_parse = ArgumentParser(prog=PROG_NAME, description=DESCRIPTION,
-                            epilog=epilog, prefix_chars='-', add_help=True)
+                             epilog=epilog, prefix_chars='-', add_help=True)
 
   arg_parse.add_argument('-i', nargs='+', metavar='FASTQ_FILE',
                          help='Input paired-read FASTQ files to process. Accepts wildcards that match paired files. If more than two files are input, processing will be run in batch mode using the same parameters.')
