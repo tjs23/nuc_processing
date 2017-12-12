@@ -916,9 +916,6 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
       else:
         count_write('too_big', line)
         excluded_groups.add(ambig_group)
-      
-  for tag in out_file_objs:
-    out_file_objs[tag].close()
   
   # Remove complete excluded ambiguity groups at the end:
   # - Removes a whole ambiguity group if only one possibilty was suspect as it could be the real contact
@@ -938,7 +935,10 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
   
   counts['accepted'] -= counts['excluded_ambig_group']
   
-  # 
+  #
+      
+  for tag in out_file_objs:
+    out_file_objs[tag].close()
      
   n = counts['input_pairs']
   stats_list = []
@@ -3118,8 +3118,8 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
   else:
     size_str = '%d - %d' % tuple(sizes)
     
-  general_stats = [('Input FASTQ file 1',fastq_paths[0]),
-                   ('Input FASTQ file 2',fastq_paths[1]),
+  general_stats = [('Input FASTQ file 1', fastq_paths[0]),
+                   ('Input FASTQ file 2', fastq_paths[1]),
                    ('Homolog chrom. file', homo_chromo or 'None'),
                    ('Output file (main)',os.path.abspath(out_file)),
                    ('Output file (ambiguous)',os.path.abspath(ambig_file) if ambig_file else 'None'),
@@ -3305,7 +3305,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
     if genome_index2:
       os.unlink(sam_file3) 
       os.unlink(sam_file4)
- 
+  
   final_stats = get_ncc_stats(out_file, hom_chromo_dict)
   log_report('final', final_stats)
   
