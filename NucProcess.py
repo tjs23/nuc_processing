@@ -605,7 +605,7 @@ def remove_redundancy(ncc_file, min_repeats=2, keep_files=True, zip_files=False,
   if keep_files:
     uniq_file_name = tag_file_name(ncc_file, 'unique_read')
     uniq_file_obj = open(uniq_file_name, 'w')
-    uniq_write = uniq_file_name.write
+    uniq_write = uniq_file_obj.write
   
   n_excluded = 0
   out_file_obj = open(out_file_name, 'w')
