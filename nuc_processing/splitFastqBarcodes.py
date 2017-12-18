@@ -22,7 +22,7 @@ def writeLines(fp, lines, barcodeLen):
   fp.write(lines[3][n:])
 
 
-def main(inputFile1, inputFile2, outputDirectory, barcodeLen=3):
+def splitBarcodes(inputFile1, inputFile2, outputDirectory, barcodeLen=3):
 
   if not os.path.exists(outputDirectory):
     os.makedirs(outputDirectory)
@@ -98,10 +98,17 @@ def main(inputFile1, inputFile2, outputDirectory, barcodeLen=3):
     print('barcode "%s" = %d (%.1f%%)' % (barcode, count, 100*count/total))
 
 
+def main(argv=None):
+  if argv is None:
+    argv = sys.argv[1:]
+  in_file_1, in_file2 = argv[:2]
+  if len(argv) == 3:
+    out_dir = argv[2]
+  else:
+    out_dir = os.path.dirname(os.path.abspath(in_file_1))
+
+  splitBarcodes(in_file_1, in_file2, out_dir)
+
+
 if __name__ == '__main__':
-
-  in_files = sys.argv[1:]
-  in_file_1, in_file2 = in_files[:2]
-  out_dir = os.path.dirname(os.path.abspath(in_file_1))
-
-  main(in_file_1, in_file2, out_dir)
+  main()
