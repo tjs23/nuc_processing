@@ -898,10 +898,10 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
 
   # Remove complete excluded ambiguity groups at the end:
   # - Removes a whole ambiguity group if only one possibilty was suspect as it could be the real contact
-  
-  out_file_objs['accepted'].close()  
+
+  out_file_objs['accepted'].close()
   del out_file_objs['accepted']
-  
+
   out_file_obj = open(filter_file, 'w')
   with open_file_r(out_file_names['accepted']) as file_obj:
     write = out_file_obj.write
