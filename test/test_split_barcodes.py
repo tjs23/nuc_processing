@@ -1,10 +1,14 @@
 from nuc_processing.splitFastqBarcodes import *
 
+import pytest
 
-def test_split(tmpdir):
-    main(
-        ['test/fixtures/sample.s_1.r_1.fq', 'test/fixtures/sample.s_1.r_2.fq', str(tmpdir)]
-    )
+
+@pytest.mark.parametrize("infiles", [
+    ['test/fixtures/sample.s_1.r_1.fq', 'test/fixtures/sample.s_1.r_2.fq'],
+    ['test/fixtures/sample.s_1.r_1.fq.gz', 'test/fixtures/sample.s_1.r_2.fq.gz'],
+])
+def test_split(tmpdir, infiles):
+    main(infiles + [str(tmpdir)])
     assert len(tmpdir.listdir()) == 12
     for outfile in tmpdir.listdir():
         lines = outfile.readlines()

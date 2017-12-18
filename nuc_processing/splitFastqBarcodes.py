@@ -1,5 +1,7 @@
 import os, sys
 
+from .common import open_file_r
+
 
 def readNextFourLines(fp):
 
@@ -27,7 +29,7 @@ def splitBarcodes(inputFile1, inputFile2, outputDirectory, barcodeLen=3):
   if not os.path.exists(outputDirectory):
     os.makedirs(outputDirectory)
 
-  with open(inputFile1, 'rU') as fpin1, open(inputFile2, 'rU') as fpin2:
+  with open_file_r(inputFile1) as fpin1, open_file_r(inputFile2) as fpin2:
     barcodeCount = {}
     barcodeFp1 = {}
     barcodeFp2 = {}

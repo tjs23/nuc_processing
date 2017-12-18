@@ -42,8 +42,10 @@ import numpy as np
 from collections import defaultdict
 from shutil import move
 from subprocess import Popen, PIPE, call
+from functools import partial
 from .NucSvg import SvgDocument
 from .NucContactMap import nuc_contact_map
+from .common import open_file_r
 
 PROG_NAME = 'nuc_process'
 VERSION = '1.1.1'
@@ -59,6 +61,7 @@ DEFAULT_MIN_QUAL = 10
 QUAL_ZERO_ORDS = {'phred33':33, 'phred64':64, 'solexa':64}
 FASTQ_READ_CHUNK = 1048576
 READ_BUFFER = 2**16
+open_file_r = partial(open_file_r, buffering=READ_BUFFER)
 MIN_READ_LEN = 20
 NUM_MAP_FASTAS = 10
 SCORE_TAG = re.compile(r'\sAS:i:(\S+)')
@@ -92,16 +95,6 @@ if os.path.exists(RE_CONF_FILE):
   for line in open(RE_CONF_FILE):
     name, site = line.split()
     RE_SITES[name] = site
-
-
-def open_file_r(file_path):
-
-  if file_path.endswith('.gz'):
-    file_obj = gzip.open(file_path, 'rt')
-  else:
-    file_obj = open(file_path, 'rU', READ_BUFFER)
-
-  return file_obj
 
 
 def compress_file(file_path):
