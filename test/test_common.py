@@ -24,3 +24,20 @@ def test_open_file_r(tmpdir):
 ])
 def test_strip_ext(x, ext, expected):
     assert strip_ext(x, ext) == expected
+
+
+@pytest.mark.parametrize("inputs, expected", [
+    (['foo.r1.fq', 'foo.r2.fq'], 'foo_r1_r2.fq'),
+    (['foo_bar.r1.fq', 'foo_baz.r2.fq'], 'foo_bar_baz_r1_r2.fq'),
+])
+def test_merge_file_names(inputs, expected):
+    assert merge_file_names(inputs[0], inputs[1]) == expected
+
+
+@pytest.mark.parametrize("inputs", [
+    ('foo.r1.fq', 'foo.r2.fq.gz'),
+    ('bar/foo.r1.fq', 'baz/foo.r2.fq'),
+])
+def test_merge_file_error(inputs):
+    with pytest.raises(Exception):
+        merge_file_names(inputs[0], inputs[1])
