@@ -6,6 +6,7 @@ try:
 except ImportError:
   # Python 2
   from itertools import izip_longest as zip_longest
+from functools import partial
 
 
 def open_file_r(file_path, buffering=-1):
@@ -21,8 +22,12 @@ def strip_ext(name, ext):
   return name
 
 
+def nwise_longest(iterable, n=2, fillvalue=None):
+  return zip_longest(*[iter(iterable)] * n, fillvalue=fillvalue)
+
+
 def merge_file_names(file_path1, file_path2, sep='_'):
-  SPLIT_PATT = re.compile('[_\.]')
+  SPLIT_PATT = re.compile('([_\.])')
 
   dir_name1, file_name1 = os.path.split(file_path1)
   dir_name2, file_name2 = os.path.split(file_path2)
@@ -39,10 +44,15 @@ def merge_file_names(file_path1, file_path2, sep='_'):
     raise Exception(msg)
 
   parts = []
-  for a, b in zip_longest(*map(SPLIT_PATT.split, [file_root1, file_root2])):
-    if a is not None:
-      parts.append(a)
-    if a != b and b is not None:
-      parts.append(b)
+  # Split on separators
+  split_names = map(SPLIT_PATT.split, [file_root1, file_root2])
+  # Pair segment and following separator
+  split_names = map(partial(nwise_longest, n=2, fillvalue="."), split_names)
 
-  return os.path.join(dir_name1, sep.join(parts) + file_ext1)
+  for (a, sep_a), (b, sep_b) in zip_longest(*split_names, fillvalue=("", "")):
+    if a is not None:
+      parts.extend([a, sep_a])
+    if a != b and b is not None:
+      parts.extend([b, sep_b])
+
+  return os.path.join(dir_name1, ''.join(parts) + file_ext1[1:])
