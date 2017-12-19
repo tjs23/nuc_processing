@@ -40,8 +40,9 @@ def merge_file_names(file_path1, file_path2, sep='_'):
 
   parts = []
   for a, b in zip_longest(*map(SPLIT_PATT.split, [file_root1, file_root2])):
-    parts.append(a)
-    if a != b:
+    if a is not None:
+      parts.append(a)
+    if a != b and b is not None:
       parts.append(b)
 
   return os.path.join(dir_name1, sep.join(parts) + file_ext1)
