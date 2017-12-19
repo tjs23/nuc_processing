@@ -3023,12 +3023,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
       break
 
   else:
-    file_paths = []
-    for fastq_path in fastq_paths:
-      if fastq_path.lower().endswith('.gz'):
-        fastq_path = fastq_path[:-3]
-
-      file_paths.append(fastq_path)
+    file_paths = list(map(partial(strip_ext, ext=".gz"), fastq_paths))
 
     merged_path = merge_file_names(file_paths[0], file_paths[1])
     file_root = os.path.splitext(merged_path)[0]
