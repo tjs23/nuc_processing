@@ -1,3 +1,6 @@
 #!/bin/sh
 
+export NUC_PROCESS_DIR="$(cd $(dirname "$0"); pwd)"
+export PYTHONPATH="${PYTHONPATH}:.:${NUC_PROCESS_DIR}"
+
 python -m nuc_processing.NucContactProbability $*
