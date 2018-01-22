@@ -42,6 +42,14 @@ extension. For example "chr7" will be taken from a file named
 "mm_ref_GRCm38.p2_chr7.fa".
 
 
+Citations
+---------
+
+If you use NucProcess in published work, please cite the following reference:
+
+  Stevens et al. Nature. 2017 Apr 6;544(7648):59-64 [PMID:28289288]
+
+
 
 Barcoded input
 --------------

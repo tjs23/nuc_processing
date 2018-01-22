@@ -1,7 +1,7 @@
 """
 ---- COPYRIGHT ----------------------------------------------------------------
 
-Copyright (C) 20016-2017
+Copyright (C) 20016-2018
 Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
 
 
@@ -49,10 +49,10 @@ PROG_NAME = 'nuc_process'
 VERSION = '1.1.1'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
-RE_SITES = {'MboI'   : '^GATC_',    # noqa: E203
-            'DpnII'  : '^GATC_',    # noqa: E203
-            'AluI'   : 'AG^CT',     # noqa: E203
-            'BglII'  : 'A^GATC_T',  # noqa: E203
+RE_SITES = {'MboI'   : '^GATC_',
+            'DpnII'  : '^GATC_',
+            'AluI'   : 'AG^CT',
+            'BglII'  : 'A^GATC_T',
             'HindIII': 'A^AGCT_T'}
 QUAL_SCHEMES = ['phred33', 'phred64', 'solexa']
 DEFAULT_MIN_QUAL = 10
@@ -3425,7 +3425,11 @@ def main(argv=None):
   if sizes:
     sizes = sorted([int(x) for x in re.split('\D+', sizes)])
 
-  if len(fastq_paths) > 2: # Batch mode
+  if not fastq_paths:
+    msg = 'No FASTQ paths specified'
+    fatal(msg)
+
+  elif len(fastq_paths) > 2: # Batch mode
     fastq_paths_1, fastq_paths_2 = pair_fastq_files(fastq_paths, pair_tags)
 
     if out_file or ambig_file or report_file:
