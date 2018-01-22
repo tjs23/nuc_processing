@@ -174,15 +174,12 @@ Command line options for nuc_process
 ------------------------------------
 
 usage: nuc_process [-h] [-i FASTQ_FILE [FASTQ_FILE ...]] [-g GENOME_FILE]
-                   [-g2 GENOME_FILE_2] [-re1 ENZYME] [-re2 ENZYME]
-                   [-s SIZE_RANGE] [-n CPU_COUNT] [-r COUNT] [-o NCC_FILE]
-                   [-oa NCC_FILE] [-or REPORT_FILE] [-b EXE_FILE] [-q SCHEME]
-                   [-qm MIN_QUALITY] [-m] [-p]
+                   [-re1 ENZYME] [-re2 ENZYME] [-s SIZE_RANGE] [-n CPU_COUNT]
+                   [-r COUNT] [-o NCC_FILE] [-oa NCC_FILE] [-or REPORT_FILE]
+                   [-b EXE_FILE] [-q SCHEME] [-qm MIN_QUALITY] [-m] [-p]
                    [-pt PAIRED_READ_TAGS PAIRED_READ_TAGS] [-x]
-                   [-f FASTA_FILES [FASTA_FILES ...]]
-                   [-f2 FASTA_FILES_2 [FASTA_FILES_2 ...]] [-a] [-k] [-sam]
-                   [-l SEQUENCE] [-z] [-v] [-hc HOM_CHROMO_TSV_FILE] [-u]
-                   [-c GENOME_COPIES]
+                   [-f FASTA_FILES [FASTA_FILES ...]] [-a] [-k] [-sam]
+                   [-l SEQUENCE] [-z] [-v] [-u] [-c GENOME_COPIES]
 
 Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools
 
@@ -198,6 +195,10 @@ optional arguments:
                         to without any file extensions like ".1.b2" etc. A new
                         index will be created with the name if the index is
                         missing and genome FASTA files are specified
+  -g2 GENOME_FILE_2     Location of secondary genome index files for hybrid
+                        genomes. A new index will be created with the name if
+                        the index is missing and genome FASTA files are
+                        specified
   -re1 ENZYME           Primary restriction enzyme (for ligation junctions).
                         Default: MboI. Available: AluI, BglII, DpnII, HindIII,
                         MboI
@@ -240,6 +241,10 @@ optional arguments:
   -f FASTA_FILES [FASTA_FILES ...]
                         Specify genome FASTA files for genome index building
                         (accepts wildcards)
+  -f2 FASTA_FILES_2 [FASTA_FILES_2 ...]
+                        A second set of genome FASTA files for building a
+                        second genome index when using hybrid strain cells
+                        (accepts wildcards).
   -a                    Whether to report ambiguously mapped contacts
   -k                    Keep any intermediate files (e.g. clipped FASTQ etc).
   -sam                  Write paired contacts files to SAM format
@@ -247,12 +252,19 @@ optional arguments:
                         this is guessed from the primary restriction enzyme)
   -z                    GZIP compress any output FASTQ files
   -v, --verbose         Display verbose messages to report progress
+  -hc HOM_CHROMO_TSV_FILE, --homologous_chromos HOM_CHROMO_TSV_FILE
+                        File path specifying whitespace-separated pairs of
+                        homologous chromosome names (to match first word in
+                        header lines of genome sequence FASTQ files) and
+                        corresponding pair name (e.g. "chrX"). Required for
+                        hybrid strain analysis. See -g2 option.
   -u                    Whether to only accept uniquely mapping genome
                         positions and not attempt to resolve certain classes
                         of ambiguous mapping where a single perfect match is
                         found.
   -c GENOME_COPIES      Number of whole-genome copies, e.g. for S2 phase;
-                        Default 1.
+                        Default 1 unless homologous chromosomes (-hc) are
+                        specified for hybrid genomes.
 
 Note enzymes.conf can be edited to add further restriction enzyme cut-site
 definitions. 
