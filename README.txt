@@ -42,6 +42,14 @@ extension. For example "chr7" will be taken from a file named
 "mm_ref_GRCm38.p2_chr7.fa".
 
 
+Citations
+---------
+
+If you use NucProcess in published work, please cite the following reference:
+
+  Stevens et al. Nature. 2017 Apr 6;544(7648):59-64 [PMID:28289288]
+
+
 
 Barcoded input
 --------------
@@ -190,10 +198,6 @@ optional arguments:
                         to without any file extensions like ".1.b2" etc. A new
                         index will be created with the name if the index is
                         missing and genome FASTA files are specified
-  -g2 GENOME_FILE_2     Location of secondary genome index files for hybrid
-                        genomes. A new index will be created with the name if
-                        the index is missing and genome FASTA files are
-                        specified
   -re1 ENZYME           Primary restriction enzyme (for ligation junctions).
                         Default: MboI. Available: AluI, BglII, DpnII, HindIII,
                         MboI
@@ -236,10 +240,6 @@ optional arguments:
   -f FASTA_FILES [FASTA_FILES ...]
                         Specify genome FASTA files for genome index building
                         (accepts wildcards)
-  -f2 FASTA_FILES_2 [FASTA_FILES_2 ...]
-                        A second set of genome FASTA files for building a
-                        second genome index when using hybrid strain cells
-                        (accepts wildcards).
   -a                    Whether to report ambiguously mapped contacts
   -k                    Keep any intermediate files (e.g. clipped FASTQ etc).
   -sam                  Write paired contacts files to SAM format
@@ -247,19 +247,12 @@ optional arguments:
                         this is guessed from the primary restriction enzyme)
   -z                    GZIP compress any output FASTQ files
   -v, --verbose         Display verbose messages to report progress
-  -hc HOM_CHROMO_TSV_FILE, --homologous_chromos HOM_CHROMO_TSV_FILE
-                        File path specifying whitespace-separated pairs of
-                        homologous chromosome names (to match first word in
-                        header lines of genome sequence FASTQ files) and
-                        corresponding pair name (e.g. "chrX"). Required for
-                        hybrid strain analysis. See -g2 option.
   -u                    Whether to only accept uniquely mapping genome
                         positions and not attempt to resolve certain classes
                         of ambiguous mapping where a single perfect match is
                         found.
   -c GENOME_COPIES      Number of whole-genome copies, e.g. for S2 phase;
-                        Default 1 unless homologous chromosomes (-hc) are
-                        specified for hybrid genomes.
+                        Default 1.
 
 Note enzymes.conf can be edited to add further restriction enzyme cut-site
 definitions. 
