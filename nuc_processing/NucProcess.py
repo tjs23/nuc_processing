@@ -1799,7 +1799,7 @@ def get_chromo_re_fragments(fasta_file_objs, contig, sequence, re_site, cut_offs
 
   fasta_write = [fo.write for fo in fasta_file_objs]
 
-  step = mappability_length/2
+  step = mappability_length // 2
   site_len = len(re_site)
   offset_start = site_len - cut_offset
   frag_start = offset_start
@@ -2129,9 +2129,9 @@ def index_genome(base_name, file_names, output_dir, indexer_exe='bowtie2-build',
     file_name = uncompress_gz_file(file_name)
     fasta_files.append(file_name)
 
-  fasta_file_str = ','.join(fasta_files)
+  fasta_file_str = ','.join(map(os.path.abspath, fasta_files))
 
-  cmd_args = [indexer_exe, '-f']
+  cmd_args = [indexer_exe, '-f', '-c']
 
   if quiet:
     cmd_args.append('-q')
@@ -2142,6 +2142,11 @@ def index_genome(base_name, file_names, output_dir, indexer_exe='bowtie2-build',
   cmd_args += ['-t', str(table_size), fasta_file_str, base_name]
 
   call(cmd_args, cwd=output_dir)
+
+  # Bowtie2 always returns 0, so check if output is produced
+  status, error = check_index_file(os.path.join(output_dir, base_name))
+  if not status:
+    raise RuntimeError("Bowtie2 failed: " + error)
 
 
 def get_ligation_junction(re_site):
