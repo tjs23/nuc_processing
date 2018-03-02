@@ -296,6 +296,9 @@ def load_ncc(ncc_path):
         chr_a, chr_b = chr_b, chr_a
         start_a, start_b = start_b, start_a
         end_a, end_b = end_b, end_a
+        f_start_a, f_start_b = f_start_b, f_start_a
+        f_end_a, f_end_b = f_end_b, f_end_a
+        strand_a, strand_b = strand_b, strand_a
 
       chr_pair = (chr_a, chr_b)
       if chr_pair in contacts:
@@ -436,7 +439,7 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
       ni = _get_num_isolated(contact_list)
       s_a, n_a = chromo_offsets[chr_a]
       s_b, n_b = chromo_offsets[chr_b]
-
+      
       for p_a, p_b, ag in contact_list:
         if chr_a != chr_b:
           if ('.' in chr_a) and ('.' in chr_b) and (chr_a.split('.')[0] == chr_b.split('.')[0]):
