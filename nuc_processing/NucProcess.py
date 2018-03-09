@@ -42,28 +42,30 @@ import numpy as np
 from collections import defaultdict
 from shutil import move
 from subprocess import Popen, PIPE, call
+from functools import partial
 from .NucSvg import SvgDocument
 from .NucContactMap import nuc_contact_map
+from .common import open_file_r, strip_ext, merge_file_names
 
 PROG_NAME = 'nuc_process'
 VERSION = '1.1.1'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
-RE_SITES = {'MboI'   : '^GATC_',
-            'DpnII'  : '^GATC_',
-            'AluI'   : 'AG^CT',
-            'BglII'  : 'A^GATC_T',
-            'HindIII': 'A^AGCT_T'}
+RE_SITES = {'MboI'   : '^GATC_',    # noqa: E203
+            'DpnII'  : '^GATC_',    # noqa: E203
+            'AluI'   : 'AG^CT',     # noqa: E203
+            'BglII'  : 'A^GATC_T',  # noqa: E203
+            'HindIII': 'A^AGCT_T'}  # noqa: E203
 QUAL_SCHEMES = ['phred33', 'phred64', 'solexa']
 DEFAULT_MIN_QUAL = 10
 QUAL_ZERO_ORDS = {'phred33':33, 'phred64':64, 'solexa':64}
 FASTQ_READ_CHUNK = 1048576
 READ_BUFFER = 2**16
+open_file_r = partial(open_file_r, buffering=READ_BUFFER)
 MIN_READ_LEN = 20
 NUM_MAP_FASTAS = 10
 SCORE_TAG = re.compile(r'\sAS:i:(\S+)')
 SCORE_TAG_SEARCH = SCORE_TAG.search
-FILENAME_SPLIT_PATT = re.compile('[_\.]')
 NCC_FORMAT = '%s %d %d %d %d %s %s %d %d %d %d %s %d %d %d\n'
 LOG_FILE_PATH = None
 STAT_FILE_PATH = None
@@ -92,16 +94,6 @@ if os.path.exists(RE_CONF_FILE):
   for line in open(RE_CONF_FILE):
     name, site = line.split()
     RE_SITES[name] = site
-
-
-def open_file_r(file_path):
-
-  if file_path.endswith('.gz'):
-    file_obj = gzip.open(file_path, 'rt')
-  else:
-    file_obj = open(file_path, 'rU', READ_BUFFER)
-
-  return file_obj
 
 
 def compress_file(file_path):
@@ -209,54 +201,6 @@ def write_sam_file(ncc_file_path, ref_sam_file_1, ref_sam_file_2):
        write('%s\n%s\n' % pair_sam_lines(line1[10:], line2[10:]))
 
    return sam_file_path
-
-
-def merge_file_names(file_path1, file_path2, sep='_'):
-
-  # same dir, need non truncated name
-
-  dir_name1, file_name1 = os.path.split(file_path1)
-  dir_name2, file_name2 = os.path.split(file_path2)
-
-  if dir_name1 != dir_name2:
-    msg = 'Attempt to merge file names for file from different directories'
-    raise Exception(msg)
-
-  file_root1, file_ext1 = os.path.splitext(file_name1)
-  file_root2, file_ext2 = os.path.splitext(file_name2)
-
-  if file_ext1 != file_ext2:
-    msg = 'Attempt to merge file names with different file extensions'
-    raise Exception(msg)
-
-  parts1 = FILENAME_SPLIT_PATT.split(file_root1)
-  parts2 = FILENAME_SPLIT_PATT.split(file_root2)
-  parts3 = []
-
-  n1 = len(parts1)
-  n2 = len(parts2)
-  n = max(n1, n2)
-
-  for i in range(n):
-
-    if (i < n1) and (i < n2):
-      a = parts1[i]
-      b = parts2[i]
-
-      parts3.append(a)
-      if a != b:
-        parts3.append(b)
-
-    elif i < n1:
-      parts3.append(parts1[i])
-    else:
-      parts3.append(parts2[i])
-
-  file_root3 = sep.join(parts3)
-
-  file_path3 = os.path.join(dir_name1, file_root3 + file_ext1)
-
-  return file_path3
 
 
 def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
@@ -898,10 +842,10 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
 
   # Remove complete excluded ambiguity groups at the end:
   # - Removes a whole ambiguity group if only one possibilty was suspect as it could be the real contact
-  
-  out_file_objs['accepted'].close()  
+
+  out_file_objs['accepted'].close()
   del out_file_objs['accepted']
-  
+
   out_file_obj = open(filter_file, 'w')
   with open_file_r(out_file_names['accepted']) as file_obj:
     write = out_file_obj.write
@@ -1855,7 +1799,7 @@ def get_chromo_re_fragments(fasta_file_objs, contig, sequence, re_site, cut_offs
 
   fasta_write = [fo.write for fo in fasta_file_objs]
 
-  step = mappability_length/2
+  step = mappability_length // 2
   site_len = len(re_site)
   offset_start = site_len - cut_offset
   frag_start = offset_start
@@ -2185,9 +2129,9 @@ def index_genome(base_name, file_names, output_dir, indexer_exe='bowtie2-build',
     file_name = uncompress_gz_file(file_name)
     fasta_files.append(file_name)
 
-  fasta_file_str = ','.join(fasta_files)
+  fasta_file_str = ','.join(map(os.path.abspath, fasta_files))
 
-  cmd_args = [indexer_exe, '-f']
+  cmd_args = [indexer_exe, '-f', '-c']
 
   if quiet:
     cmd_args.append('-q')
@@ -2198,6 +2142,11 @@ def index_genome(base_name, file_names, output_dir, indexer_exe='bowtie2-build',
   cmd_args += ['-t', str(table_size), fasta_file_str, base_name]
 
   call(cmd_args, cwd=output_dir)
+
+  # Bowtie2 always returns 0, so check if output is produced
+  status, error = check_index_file(os.path.join(output_dir, base_name))
+  if not status:
+    raise RuntimeError("Bowtie2 failed: " + error)
 
 
 def get_ligation_junction(re_site):
@@ -3030,12 +2979,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, sizes=(
       break
 
   else:
-    file_paths = []
-    for fastq_path in fastq_paths:
-      if fastq_path.lower().endswith('.gz'):
-        fastq_path = fastq_path[:-3]
-
-      file_paths.append(fastq_path)
+    file_paths = list(map(partial(strip_ext, ext=".gz"), fastq_paths))
 
     merged_path = merge_file_names(file_paths[0], file_paths[1])
     file_root = os.path.splitext(merged_path)[0]
