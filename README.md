@@ -14,7 +14,13 @@ The development version is available here: [Development master](https://github.c
 
 ## Documentation
 
-See the [wiki](https://github.com/tjs23/nuc_processing/wiki) pages for documentation on how to install and run NucProcess.
+See the [wiki pages](https://github.com/tjs23/nuc_processing/wiki) for documentation on how to install and run NucProcess,
+including options for the following commands:
+
+* [nuc_process](https://github.com/tjs23/nuc_processing/wiki/nuc_process)
+* [nuc_contact_map](https://github.com/tjs23/nuc_processing/wiki/nuc_contact_map) 
+* [nuc_contact_probability](https://github.com/tjs23/nuc_processing/wiki/nuc_contact_map)
+* [split_fastq_barcodes](https://github.com/tjs23/nuc_processing/wiki/split_fastq_barcodes)
 
 ## Citations
 

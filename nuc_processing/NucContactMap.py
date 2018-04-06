@@ -44,7 +44,7 @@ from collections import defaultdict
 from .NucSvg import SvgDocument
 
 PROG_NAME = 'nuc_contact_map'
-VERSION = '1.1.0'
+VERSION = '1.0.2'
 DESCRIPTION = 'Chromatin contact (NCC format) Hi-C contact map display module for Nuc3D and NucTools'
 DEFAULT_BIN_SIZE = 5 # Megabases
 
