@@ -10,7 +10,11 @@ There are two main versions of NucProcess, a stable release that corresponds to 
 
 The current stable version is available here: [Release 1.0](https://github.com/tjs23/nuc_processing/tree/release_1.0)
 
-The development version is available here: [Development master](https://github.com/tjs23/nuc_processing)  
+The development version is available here: [Development master](https://github.com/tjs23/nuc_processing/tree/master)  
+
+## Documentation
+
+See the [wiki](https://github.com/tjs23/nuc_processing/wiki) pages for documentation on how to istall and run NucProcess.
 
 ## Citations
 
@@ -20,4 +24,4 @@ If you use NucProcess in published work, please cite the following reference:
 
 ## Licencing
 
-NucProcess is licensed under GNU Lesser General Public License v3.0
+NucProcess is licensed under [GNU Lesser General Public License v3.0](https://github.com/tjs23/nuc_processing/blob/release_1.0/COPYING.LESSER)
