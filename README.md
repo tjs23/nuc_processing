@@ -14,7 +14,7 @@ The development version is available here: [Development master](https://github.c
 
 ## Documentation
 
-See the [wiki](https://github.com/tjs23/nuc_processing/wiki) pages for documentation on how to istall and run NucProcess.
+See the [wiki](https://github.com/tjs23/nuc_processing/wiki) pages for documentation on how to install and run NucProcess.
 
 ## Citations
 
@@ -22,6 +22,6 @@ If you use NucProcess in published work, please cite the following reference:
 
   Stevens et al. Nature. 2017 Apr 6;544(7648):59-64 [PMID:28289288](https://www.ncbi.nlm.nih.gov/pubmed/28289288)
 
-## Licencing
+## Licensing
 
 NucProcess is licensed under [GNU Lesser General Public License v3.0](https://github.com/tjs23/nuc_processing/blob/release_1.0/COPYING.LESSER)
