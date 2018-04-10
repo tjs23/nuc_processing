@@ -1449,7 +1449,7 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   patt_4 = re.compile('(\d+) \(.+\) aligned >1 times')
 
   cmd_args = [align_exe,
-              '-D', '20', '-R', '3', '-N', '0',  '-L', '20',  '-i', 'S,1,0.50',
+              '-D', '20', '-R', '3', '-N', '0', '-L', '20', '-i', 'S,1,0.50',
               '-x', genome_index,
               '-k', '2',
               '--reorder',
@@ -2654,7 +2654,7 @@ def write_report(report_file, second_genome=None):
   hist, edges = frag_sizes
   data_set = [(int(edges[i]), int(val)) for i, val in enumerate(hist)]
   svg_doc.graph(x1, y+chart_height, table_width/2, th-chart_height-40, [data_set], 'Size', 'Count',
-                names=None, colors=None,  graph_type='line',
+                names=None, colors=None, graph_type='line',
                 symbols=None, line_widths=None, symbol_sizes=None,
                 legend=False, title=None, plot_offset=(80, 20))
   y += th

@@ -820,7 +820,7 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
       msg = '{} barcode: {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc_key, nb, nb/float(100.0*n_reads))
       info(msg)
 
-  _write_analysis_file(bc_counts, sample_names,  analysis_file_path)
+  _write_analysis_file(bc_counts, sample_names, analysis_file_path)
 
 
 if __name__ == '__main__':

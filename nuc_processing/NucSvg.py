@@ -465,7 +465,7 @@ class SvgDocument(object):
       self.text(y_axis_label, (x3, y), anchor='middle', size=font_size, bold=False, font=font, color=line_color, angle=270, vert_align=None)
 
   def graph(self, x, y, width, height, data_lists, x_label, y_label,
-            names=None, colors=None,  graph_type=LINE_TYPE,
+            names=None, colors=None, graph_type=LINE_TYPE,
             symbols=None, line_widths=None, symbol_sizes=None,
             legend=False, title=None, x_labels=None, plot_offset=(100, 50),
             axis_color='black', bg_color='#F0F0F0', font=None, font_size=16, line_width=1,
