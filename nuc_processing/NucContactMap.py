@@ -520,23 +520,23 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
 
   if black_bg:
     if not color:
-      color = [0.0, 200.0, 255.0]
+      color = [0, 200, 255]
     if not color_ambig:
-      color_ambig = [100.0, 0.0, 0.0]
+      color_ambig = [100, 0, 0]
 
     def color_func(x, c=(color, color_ambig)):
-      return _color_func(x, c, [0.0] * 3)
+      return _color_func(x, c, [0] * 3)
 
     grid_color = '#303030'
 
   else:
     if not color:
-      color = [0.0, 0.0, 128.0]
+      color = [0, 0, 128]
     if not color_ambig:
-      color_ambig = [180.0, 180.0, 0.0]
+      color_ambig = [180, 180, 0]
 
     def color_func(x, c=(color, color_ambig)):
-      return _color_func(x, c, [255.0] * 3)
+      return _color_func(x, c, [255] * 3)
 
     grid_color = '#C0C0C0'
 
