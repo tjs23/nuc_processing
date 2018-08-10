@@ -47,7 +47,7 @@ from .NucSvg import SvgDocument
 from .NucContactMap import nuc_contact_map
 
 PROG_NAME = 'nuc_process'
-VERSION = '1.1.3'
+VERSION = '1.2.0'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
 RE_SITES = {'MboI'   : '^GATC_',
