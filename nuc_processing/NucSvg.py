@@ -559,7 +559,7 @@ class SvgDocument(object):
           color = colors[i % n_colors]
           symbol = symbols[i] if graph_type in (LINE_TYPE, SCATTER_TYPE) else 'square'
           self._graph_draw_symbols([(x2, y2, None, None)], color, symbol, fill=color, symbol_size=7)
-          self.text(name, (x2+font_size,y2), anchor='start', size=font_size, vert_align='middle')
+          self.text(name, (x2+font_size/2,y2), anchor='start', size=14, vert_align='middle')
           y2 += font_size
 
     for i, data_points in enumerate(data_lists):
@@ -592,7 +592,6 @@ class SvgDocument(object):
       self.text(title, ((x0+x1)/2.0, y1/2.0), anchor='middle', size=font_size+2)
 
     if texts:
-
       for text, color, data_coords in texts:
         x, y = data_coords
         draw_coords = self._graph_get_draw_coords([(x, y, None)], data_region, plot_region)
@@ -695,14 +694,14 @@ class SvgDocument(object):
     delta_x_data = data_region[2] - data_region[0] or 1.0
     delta_y_data = data_region[3] - data_region[1] or 1.0
 
-    y_close = 80
+    y_close = 50
     x_close = 140
 
-    xs = x0 - 8
-    ys = y0 + 8
+    xs = x0 - 5
+    ys = y0 + 5
 
-    xt = xs - 4
-    yt = ys + 16
+    xt = xs - 3
+    yt = ys + 12
 
     ppv_x = delta_xplot/float(delta_x_data)
     ppv_y = delta_yplot/float(delta_y_data)
@@ -757,9 +756,9 @@ class SvgDocument(object):
         else:
           text = format_text(tick_x)
           if x_log_base:
-            self.text(x_log_base, (x, yt), anchor='middle', sup=text)
+            self.text(str(x_log_base), (x, yt), size=12, anchor='middle', sup=text)
           else:
-            self.text(text, (x, yt), anchor='middle')
+            self.text(text, (x, yt), size=12, anchor='middle')
 
         if x_grid:
           self.line((x, y0, x, y1), 'black', 1)
@@ -781,9 +780,9 @@ class SvgDocument(object):
         text = format_text(tick_y)
 
         if y_log_base:
-          self.text(y_log_base, (xt, y), anchor='end', vert_align='middle', sup=text)
+          self.text(str(y_log_base), (xt, y), size=12, anchor='end', vert_align='middle', sup=text)
         else:
-          self.text(text, (xt, y), anchor='end', vert_align='middle')
+          self.text(text, (xt, y), size=12, anchor='end', vert_align='middle')
 
         if y_grid:
           self.line((x0, y, x1, y), 'black', 1)
@@ -791,10 +790,10 @@ class SvgDocument(object):
         self.line((x0, y, xs, y), 'black', 1)
 
     if x_label:
-      self.text(x_label, ((x0+x1)/2.0, yt+24), anchor='middle')
+      self.text(x_label, ((x0+x1)/2.0, yt+16), size=14, anchor='middle')
 
     if y_label:
-      self.text(y_label, (xt-65,((y0+y1)/2.0)), angle=-90, anchor='middle')
+      self.text(y_label, (xt-30,((y0+y1)/2.0)), size=14, angle=-90, anchor='middle')
 
   def pie_chart(self, x, y, height, values, texts=None, colors=None, line_color='black', small_val=0, line_width=1, box_size=16, pad=4):
 
@@ -849,7 +848,7 @@ class SvgDocument(object):
         self.text('Other', (x1+box_size+pad, y1-2), anchor='start', size=box_size)
 
   def table(self, x0, y0, width, data, header=True, text_anchors=None, col_formats=None,
-            size=16, pad=2, font=None, main_color='black', line_color='#808080'):
+            size=16, pad=2, font=None, main_color='black', line_color='#808080', max_chars=64):
 
     row_height = size + pad + pad
     if not font:
@@ -868,14 +867,15 @@ class SvgDocument(object):
 
     col_widths = defaultdict(int)
     for row in data:
-       for col, t in enumerate(row):
-         if t is None:
-           continue
+      for col, t in enumerate(row):
+        if t is None:
+          continue
 
-         t = col_formats[col] % t
-         col_widths[col] = max(len(t), col_widths[col])
-
+        t = col_formats[col] % t
+        col_widths[col] = min(max(len(t), col_widths[col]), max_chars)
+    
     n = float(sum(col_widths.values()))
+
     col_widths = [width * col_widths[i]/n for i in range(n_cols)]
 
     x, y, = x0, y0
@@ -908,8 +908,13 @@ class SvgDocument(object):
 
           else: # 'end'
             x1 += col_widths[j] - pad
-
-          self.text(text, (x1, y-pad), anchor, size, bold, font, color=main_color)
+          
+          if len(text) > max_chars:
+            frac = float(max_chars)/len(text)
+            self.text(text, (x1, y-pad), anchor, size*frac, bold, font, color=main_color)
+          
+          else: 
+            self.text(text, (x1, y-pad), anchor, size, bold, font, color=main_color)
 
         dx += col_widths[j]
 
