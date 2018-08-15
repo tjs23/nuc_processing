@@ -1424,7 +1424,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
            ('position_ambiguous', (n_ambig, n_pairs)),
            ('total_contacts', n_pairs)]
 
-  log_report('pair', stats, {'primary_strand':zip(n_primary_strand, n_strand)})
+  log_report('pair', stats, {'primary_strand':list(zip(n_primary_strand, n_strand))})
 
   move(paired_ncc_file_name_temp, paired_ncc_file_name)
   move(ambig_ncc_file_name_temp, ambig_ncc_file_name)
