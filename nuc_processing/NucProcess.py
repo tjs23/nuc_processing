@@ -778,17 +778,17 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
     re1_b_start, re1_b_end, mappability_b = re1_frag_dict[chr_b][re1_b_idx]
 
     if pos_strand_a:
-      delta_re1_a = re1_a_end - start_a # separation from ligation junction
+      delta_re1_a = max(0, re1_a_end - start_a) # separation from ligation junction
       p1, p2 = start_a, end_a # sorted GENOME positions
     else:
-      delta_re1_a = start_a - re1_a_start
+      delta_re1_a = max(0, start_a - re1_a_start)
       p1, p2 = end_a, start_a
 
     if pos_strand_b:
-      delta_re1_b = re1_b_end - start_b
+      delta_re1_b = max(0, re1_b_end - start_b)
       p3, p4 = start_b, end_b
     else:
-      delta_re1_b = start_b - re1_b_start
+      delta_re1_b = max(0, start_b - re1_b_start)
       p3, p4 = end_b, start_b
 
     size_t = delta_re1_a + delta_re1_b
