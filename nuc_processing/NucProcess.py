@@ -480,7 +480,8 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=100000):
 
   return stats
 
-def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2, use_re_fragments=True, ambig=False):
+def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
+                      use_re_fragments=True, ambig=False, is_hybrid=False):
 
   """
   A:B B:A redundancey taken care of at this stage because the NCC file pairs are internally sorted
@@ -541,7 +542,8 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
     ambig_keep = line_data[12]
     n_ambig_keep = ambig_sizes[ambig_keep]
 
-    # Remove redundancy, keeping the least ambigous or else the longest
+    # Normally remove redundancy, keeping the least ambiguous or else the longest
+    # - for hybrid dual-genome mapping go for the most ambiguous to be safe
     for line in sort_file_obj:
       n_pairs += 1
       line_data = line.split()
@@ -564,7 +566,14 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
           else: # This repeat is worse
             excluded_groups.add(ambig_curr) # Remove this group
 
-        elif n_ambig_curr < n_ambig_keep: # Better to keep this less ambiguous repeat
+        elif n_ambig_curr > n_ambig_keep and is_hybrid: # For hybrids keep the more ambiguous
+          excluded_groups.add(ambig_keep) # Remove prev kept group
+          len_keep = len_curr
+          line_keep = line
+          n_ambig_keep = n_ambig_curr
+          ambig_keep = ambig_curr
+
+        elif n_ambig_curr < n_ambig_keep and not is_hybrid: # Normally better to keep this less ambiguous repeat
           excluded_groups.add(ambig_keep) # Remove prev kept group
           len_keep = len_curr
           line_keep = line
@@ -736,6 +745,9 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
   excluded_groups = set()
   
   max_idx = {chr_a:len(re1_end_dict[chr_a])-1 for chr_a in re1_end_dict}
+  if re2_files:
+    max_idx2 = {chr_a:len(re2_end_dict[chr_a])-1 for chr_a in re2_end_dict}
+  
   searchsorted = np.searchsorted
   
   for line in in_file_obj:
@@ -760,17 +772,19 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
     
     if chr_a not in re1_end_dict:
       count_write('unknown_contig', line)
+      excluded_groups.add(ambig_group)
       continue
 
     if chr_b not in re1_end_dict:
       count_write('unknown_contig', line)
+      excluded_groups.add(ambig_group)
       continue
 
     # Find which RE fragments the _final_ (3') read positions were within ; this points to the following RE1 ligation junction
     # - the read could cover undigested RE sites
     # - index of frag with pos immediately less than end
     
-    # With truncated contigs the (real) read seqeuence can exceeed the reference
+    # With truncated contigs the (real) read sequence can exceed the reference
     re1_a_idx = min(max_idx[chr_a], searchsorted(re1_end_dict[chr_a], end_a))
     re1_b_idx = min(max_idx[chr_b], searchsorted(re1_end_dict[chr_b], end_b))
     
@@ -812,12 +826,12 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
     line = NCC_FORMAT % (chr_a, start_a, end_a, re1_a_start, re1_a_end, strand_a,
                          chr_b, start_b, end_b, re1_b_start, re1_b_end, strand_b,
                          ambig_group, int(pair_id), int(swap_pair))
-
+    
     if re2_files:
       # Check Read is at the end of different RE2 fragments
       # Note: modulo is due to circular chromosomes
-      re2_a_idx = searchsorted(re2_end_dict[chr_a], [start_a])[0] % len(re2_end_dict[chr_a])
-      re2_b_idx = searchsorted(re2_end_dict[chr_b], [start_b])[0] % len(re2_end_dict[chr_b])
+      re2_a_idx = min(max_idx2[chr_a], searchsorted(re2_end_dict[chr_a], end_a))
+      re2_b_idx = min(max_idx2[chr_b], searchsorted(re2_end_dict[chr_b], end_b))
 
       # Internal RE2 not necessarily a problem if reads are in different RE1 fragements, e.g. potential ligation junction within
       if re2_a_idx == re2_b_idx and chr_a == chr_b and re1_a_idx == re1_b_idx:
@@ -1781,7 +1795,7 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   if INTERRUPTED and os.path.exists(clipped_file) and not os.path.exists(clipped_file_temp):
     return clipped_file
   
-  in_file_obj = open_file_r(fastq_file)
+  in_file_obj = open_file_r(fastq_file, complete=not bool(max_reads_in))
   n_rep = len(replaced_seq)
   n_junc = len(junct_seq)
   
@@ -1841,7 +1855,11 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
       q = 1
       line2 = line2[1:]
       line4 = line4[1:]
-
+    
+    for i, qs in enumerate(line4):
+      if (ord(qs) - zero_ord) < min_qual:
+        line2 = line2[:i] + 'N' + line2[i+1:]
+    
     n_qclip += q
 
     if n_junc < n_rep:
@@ -3046,7 +3064,10 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
       fatal('Two chromosome naming files must be specified (-c and -c2) for dual genome indices')
 
     genome_indices.append(genome_index2)
-
+    is_hybrid = True
+  else:
+    is_hybrid = False 
+    
   # Files can be empty if just re-indexing etc...
   if not fastq_paths and not (reindex and g_fastas):
     fatal('No FASTQ files specified')
@@ -3241,7 +3262,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     ('Aligner executable', align_exe),
     ('Genome indices', ', '.join(genome_indices)),
     ('FASTQ quality scheme', qual_scheme),
-    ('Minimum 3\' FASTQ quaility', min_qual),
+    ('Minimum FASTQ quaility', min_qual),
     ('RE1 site', re1),
     ('RE2 site', (re2 or 'None')),
     ('Ligation junction', lig_junc),
@@ -3282,7 +3303,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     re2_files.append(check_re_frag_file(genome_index, re2, g_fastas, base_chromo_name_dict,
                                         align_exe, num_cpu, remap=remap))
   
-  if genome_index2:
+  if is_hybrid:
     re1_files.append(check_re_frag_file(genome_index2, re1, g_fastas2, base_chromo_name_dict,
                                         align_exe, num_cpu, remap=remap))
 
@@ -3304,7 +3325,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   sam_file1 = map_reads(clipped_file1, genome_index, align_exe, num_cpu, ambig, qual_scheme, 1)
   sam_file2 = map_reads(clipped_file2, genome_index, align_exe, num_cpu, ambig, qual_scheme, 2)
 
-  if genome_index2:
+  if is_hybrid:
     info('Mapping FASTQ reads to second genome...')
     sam_file3 = map_reads(clipped_file1, genome_index2, align_exe, num_cpu, ambig, qual_scheme, 3)
     sam_file4 = map_reads(clipped_file2, genome_index2, align_exe, num_cpu, ambig, qual_scheme, 4)
@@ -3315,7 +3336,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   
   info('Pairing FASTQ reads...')
 
-  if genome_index2:
+  if is_hybrid:
     paired_ncc_file, ambig_paired_ncc_file = pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4,
                                                                      chromo_name_dict, intermed_file_root, ambig, unique_map)
   else:
@@ -3389,14 +3410,14 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   else:
     # Merge duplicates
     info('Removing duplicate contacts...')
-    nr_ncc_file = remove_redundancy(filter_ncc_file, keep_files, zip_files, min_rep)
+    nr_ncc_file = remove_redundancy(filter_ncc_file, keep_files, zip_files, min_rep, is_hybrid=is_hybrid)
 
     if sam_format:
       write_sam_file(nr_ncc_file, sam_file1, sam_file2)
 
     if ambig:
       info('Filtering duplicate ambiguous contacts...')
-      ambig_nr_ncc_file = remove_redundancy(ambig_filter_ncc_file, keep_files, zip_files, min_rep, ambig=True)
+      ambig_nr_ncc_file = remove_redundancy(ambig_filter_ncc_file, keep_files, zip_files, min_rep, ambig=True, is_hybrid=is_hybrid)
 
       if sam_format:
         write_sam_file(ambig_nr_ncc_file, sam_file1, sam_file2)
@@ -3440,7 +3461,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     os.unlink(sam_file1)
     os.unlink(sam_file2)
   
-    if genome_index2:
+    if is_hybrid:
       os.unlink(sam_file3)
       os.unlink(sam_file4)
   
@@ -3549,7 +3570,7 @@ def main(argv=None):
 
   arg_parse.add_argument('-qm', '--qual-min', default=DEFAULT_MIN_QUAL, metavar='MIN_QUALITY', type=int, dest='qm',
                          help='Minimum acceptable FASTQ quality score in range 0-40 for' \
-                              ' clipping 3\' end of reads. Default: %d' % DEFAULT_MIN_QUAL)
+                              ' clipping end of reads. Default: %d' % DEFAULT_MIN_QUAL)
 
   arg_parse.add_argument('-m', '--map-re-sites', default=False, action='store_true', dest='m',
                          help='Force a re-mapping of genome restriction enzyme sites' \
@@ -3682,11 +3703,10 @@ def main(argv=None):
     fastq_pairs = [fastq_paths]
   
   for fastq_path_pair in fastq_pairs:
-    nuc_process(fastq_path_pair, genome_index, genome_index2, re1, re2, c1, c2, sizes, min_rep, num_cpu,
-                num_copies, ambig, unique_map, out_file, ambig_file, report_file, align_exe,
+    nuc_process(fastq_path_pair, genome_index, genome_index2, re1, re2, c1, c2, sizes, min_rep,
+                num_cpu, num_copies, ambig, unique_map, out_file, ambig_file, report_file, align_exe,
                 qual_scheme, min_qual, g_fastas, g_fastas2, is_pop_data, remap, reindex, keep_files,
                 lig_junc, zip_files, sam_format, verbose, lim_reads, adapt_seqs)
-
 
   # Required:
   #  - Output CSV report file option
