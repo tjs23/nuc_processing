@@ -3128,12 +3128,12 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
 
   # Check genome FASTA files
   if g_fastas:
-    for fata_path in g_fastas:
-      check_regular_file(fata_path, critical=True)
+    for fasta_path in g_fastas:
+      check_regular_file(fasta_path, critical=True)
 
   if g_fastas2:
-    for fata_path in g_fastas:
-      check_regular_file(fata_path, critical=True)
+    for fasta_path in g_fastas2:
+      check_regular_file(fasta_path, critical=True)
 
   # Check restriction enzymes
   if re1 not in RE_SITES:
