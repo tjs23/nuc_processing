@@ -46,7 +46,7 @@ from .NucSvg import SvgDocument
 PROG_NAME = 'nuc_contact_map'
 VERSION = '1.1.0'
 DESCRIPTION = 'Chromatin contact (NCC format) Hi-C contact map display module for Nuc3D and NucTools'
-DEFAULT_BIN_SIZE = 5 # Megabases
+#DEFAULT_BIN_SIZE = 5 # Megabases
 
 
 def info(msg, prefix='INFO'):
@@ -267,7 +267,7 @@ def load_ncc(ncc_path):
 
   with open(ncc_path) as in_file_obj:
     for line in in_file_obj:
-      chr_a, f_start_a, f_end_a, start_a, end_a, strand_a, chr_b, f_start_b, f_end_b, start_b, end_b, strand_b, ambig_group, pair_id, swap_pair = line.split()
+      chr_a, start_a, end_a, f_start_a, f_end_a, strand_a, chr_b, start_b, end_b, f_start_b, f_end_b, strand_b, ambig_group, pair_id, swap_pair = line.split()
 
       f_start_a = int(f_start_a)
       f_end_a = int(f_end_a)
@@ -323,15 +323,10 @@ def load_ncc(ncc_path):
   return chromo_limits, contacts
 
 
-def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5, black_bg=False, color=None,
+def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=None, black_bg=False, color=None,
                     color_ambig=None, font=None, font_size=12, line_width=0.2, min_contig_size=None):
 
   bin_size = int(bin_size * 1e6)
-
-  if min_contig_size:
-    min_contig_size = int(min_contig_size * 1e6)
-  else:
-    min_contig_size = bin_size
 
   if svg_tag == '-':
     svg_path = '-'
@@ -347,6 +342,26 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
   if not chromo_limits:
     fatal('No chromosome contact data read')
 
+  if min_contig_size:
+    min_contig_size = int(min_contig_size * 1e6)
+  else:
+    largest = max([e-s for s, e in chromo_limits.values()])
+    min_contig_size = int(0.1*largest) 
+    info('Min. contig size not specified, using 10% of largest: {:,} bp'.format(min_contig_size))
+  
+  if not bin_size:
+    tot_size = 0
+    
+    for chromo in chromo_limits:
+      s, e = chromo_limits[chromo]
+      size = e-s
+      
+      if size >= min_contig_size:
+        tot_size += size 
+    
+    bin_size = int(tot_size/1000)
+    info('Bin size not specified, using approx. 1000 x 1000 bin equivalent: {:,} bp'.format(bin_size))
+      
   # Get sorted chromosomes, ignore small contigs as appropriate
   chromos = []
   skipped = []
@@ -390,7 +405,7 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
   for chromo in chromos: # In display order
     s, e = chromo_limits[chromo]
     a = int(s/bin_size)
-    b = int(ceil(e/float(bin_size))) + 1
+    b = int(ceil(e/float(bin_size)))
     span = b-a
     chromo_offsets[chromo] = s, n # Start bp, start bin index
     chromo_spans[chromo] = span
@@ -399,7 +414,7 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
 
   if grid:
     grid.pop() # Don't need last edge
-
+  
   # Fill contact map matrix, last dim is for (un)ambigous
   data = np.zeros((n, n, 2), float)
 
@@ -453,7 +468,7 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=5
 
         a = n_a + int((p_a-s_a)/bin_size)
         b = n_b + int((p_b-s_b)/bin_size)
-
+           
         k = 0 if groups[ag] == 1 else 1
 
         data[a, b, k] += 1.0
@@ -599,11 +614,11 @@ def main(argv=None):
   arg_parse.add_argument('-w', default=800, metavar='SVG_WIDTH', type=int,
                          help='SVG document width')
 
-  arg_parse.add_argument('-s', default=DEFAULT_BIN_SIZE, metavar='BIN_SIZE', type=int,
-                         help='Sequence region size represented by each small square (the resolution) in megabases. Default is %d Mb' % DEFAULT_BIN_SIZE)
+  arg_parse.add_argument('-s', default=0.0, metavar='BIN_SIZE', type=float,
+                         help='Sequence region size represented by each small square (the resolution) in megabases. Default is to use a bin size that gives approx. 1000 x 1000 bins')
 
   arg_parse.add_argument('-m', default=0.0, metavar='MIN_CONTIG_SIZE', type=float,
-                         help='The minimum chromosome/contig sequence length in Megabases for inclusion. Default is the bin size (see -s option)')
+                         help='The minimum chromosome/contig sequence length in Megabases for inclusion. Default is 10% of the largest chromosome/contig length.')
 
   arg_parse.add_argument('-b', default=False, action='store_true',
                          help='Specifies that the contact map should have a black background (default is white)')

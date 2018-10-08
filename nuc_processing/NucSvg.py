@@ -114,7 +114,7 @@ class SvgDocument(object):
 
     path = ['M']
     for x, y in coords:
-      path += ['%d' % x, '%d' % y, 'L']
+      path += ['%.2f' % x, '%.2f' % y, 'L']
     path[-1] = 'Z'
 
     line = '    <path d="%s" fill="%s" stroke="%s" stroke-width="%d" />\n' % (' '.join(path), fill, color, width)
@@ -124,7 +124,7 @@ class SvgDocument(object):
 
     path = ['M']
     for x, y in coords:
-      path += ['%d' % x, '%d' % y, 'L']
+      path += ['%.2f' % x, '%.2f' % y, 'L']
     del path[-1]
 
     line = '     <path d="%s" fill-opacity="0.0" stroke="%s" stroke-width="%.2fpx" />\n' % (' '.join(path), color, width)
@@ -134,7 +134,7 @@ class SvgDocument(object):
   def line(self, coords, color='black', line_width=1):
 
     x1, y1, x2, y2 = coords
-    line = '     <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%.2fpx" />\n' % (x1, y1, x2, y2, color, line_width)
+    line = '     <line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="%s" stroke-width="%.2fpx" />\n' % (x1, y1, x2, y2, color, line_width)
     self._svg_lines.append(line)
 
   def circle(self, center, radius, color='black', fill='#808080'):
@@ -143,7 +143,7 @@ class SvgDocument(object):
     x = cx + radius
     y = cy + radius
 
-    line = '     <circle cx="%d" cy="%d" r="%d" stroke="%s" fill="%s" />\n' % (x,y,radius,color,fill)
+    line = '     <circle cx="%.2f" cy="%.2f" r="%.2f" stroke="%s" fill="%s" />\n' % (x,y,radius,color,fill)
     self._svg_lines.append(line)
 
   def rect(self, coords, color='black', fill='#808080'):
@@ -154,7 +154,7 @@ class SvgDocument(object):
     y = min((y0, y1))
     w = abs(x1 - x0)
     h = abs(y1 - y0)
-    line = '     <rect x="%d" y="%d" height="%d" width="%d" stroke="%s" fill="%s" />\n' % (x,y,h,w,color,fill)
+    line = '     <rect x="%.2f" y="%.2f" height="%.2f" width="%.2f" stroke="%s" fill="%s" />\n' % (x,y,h,w,color,fill)
     self._svg_lines.append(line)
 
   def square(self, center, radius, color='black', fill='#808080'):
@@ -163,7 +163,7 @@ class SvgDocument(object):
     x = cx - radius
     y = cy - radius
     r = 2*radius
-    line = '     <rect x="%d" y="%d" height="%d" width="%d" stroke="%s" fill="%s" />\n' % (x,y,r,r,color,fill)
+    line = '     <rect x="%.2f" y="%.2f" height="%.2f" width="%.2f" stroke="%s" fill="%s" />\n' % (x,y,r,r,color,fill)
     self._svg_lines.append(line)
 
   def text(self, text, coords, anchor='start', size=16, bold=False, font=None, color=None, angle=None, vert_align=None, sup=None):
@@ -193,7 +193,7 @@ class SvgDocument(object):
       sup = ''
 
     text = saxutils.escape(text)
-    line = '     <text x="%d" y="%d" text-anchor="%s" font-family="%s" font-size="%d"%s>%s%s</text>\n' % (x,y,anchor,font,size,attrs,text,sup)
+    line = '     <text x="%.2f" y="%.2f" text-anchor="%s" font-family="%s" font-size="%d"%s>%s%s</text>\n' % (x,y,anchor,font,size,attrs,text,sup)
 
     self._svg_lines.append(line)
 
@@ -225,7 +225,7 @@ class SvgDocument(object):
     img.save(io, format="PNG")
     base_64_data = base64.b64encode(io.getvalue()).decode()
 
-    line = '     <image x="%d" y="%d" width="%d" height="%d" xlink:href="data:image/png;base64,%s" />\n' % (x, y, w, h, base_64_data)
+    line = '     <image x="%.2f" y="%.2f" width="%.2f" height="%.2f" xlink:href="data:image/png;base64,%s" />\n' % (x, y, w, h, base_64_data)
 
     self._svg_lines.append(line)
 
@@ -393,7 +393,7 @@ class SvgDocument(object):
     c_matrix = color_func(c_matrix)
 
     self.rect((x1, y1, x2, y2), color=line_color, fill=bg_color)
-
+    
     self.image(x1, y1, width, height, c_matrix)
 
     if x_grid:
