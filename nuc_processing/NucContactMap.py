@@ -326,8 +326,6 @@ def load_ncc(ncc_path):
 def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=None, black_bg=False, color=None,
                     color_ambig=None, font=None, font_size=12, line_width=0.2, min_contig_size=None):
 
-  bin_size = int(bin_size * 1e6)
-
   if svg_tag == '-':
     svg_path = '-'
 
@@ -349,7 +347,10 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=N
     min_contig_size = int(0.1*largest) 
     info('Min. contig size not specified, using 10% of largest: {:,} bp'.format(min_contig_size))
   
-  if not bin_size:
+  if bin_size:
+    bin_size = int(bin_size * 1e6)
+     
+  else:
     tot_size = 0
     
     for chromo in chromo_limits:
@@ -361,6 +362,7 @@ def nuc_contact_map(ncc_path, svg_tag='_contact_map', svg_width=1000, bin_size=N
     
     bin_size = int(tot_size/1000)
     info('Bin size not specified, using approx. 1000 x 1000 bin equivalent: {:,} bp'.format(bin_size))
+  
       
   # Get sorted chromosomes, ignore small contigs as appropriate
   chromos = []
