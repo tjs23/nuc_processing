@@ -1431,7 +1431,7 @@ def get_chromo_re_fragments(fasta_file_objs, contig, sequence, re_site, cut_offs
 
   fasta_write = [fo.write for fo in fasta_file_objs]
 
-  step = mappability_length/2
+  step = int(mappability_length/2)
   site_len = len(re_site)
   offset_start = site_len - cut_offset
   frag_start = offset_start
