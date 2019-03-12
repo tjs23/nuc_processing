@@ -780,15 +780,16 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
       excluded_groups.add(ambig_group)
       continue
 
-    if chr_a not in re2_end_dict:
-      count_write('unknown_contig', line)
-      excluded_groups.add(ambig_group)
-      continue
+    if re2_files:
+      if chr_a not in re2_end_dict:
+        count_write('unknown_contig', line)
+        excluded_groups.add(ambig_group)
+        continue
 
-    if chr_b not in re2_end_dict:
-      count_write('unknown_contig', line)
-      excluded_groups.add(ambig_group)
-      continue
+      if chr_b not in re2_end_dict:
+        count_write('unknown_contig', line)
+        excluded_groups.add(ambig_group)
+        continue
 
     # Find which RE fragments the _final_ (3') read positions were within ; this points to the following RE1 ligation junction
     # - the read could cover undigested RE sites
