@@ -1695,8 +1695,8 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
            ('ambiguous', (n_ambig, n_pairs)),
            ('total_contacts', n_pairs)]
 
-  log_report('pair', stats, {'primary_strand':((n_primary_strand1, n_strand1),
-                                               (n_primary_strand2, n_strand2))})
+  log_report('pair', stats, {'pair_primary_strand':((n_primary_strand1, n_strand1),
+                                                    (n_primary_strand2, n_strand2))})
 
   move(paired_ncc_file_name_temp, paired_ncc_file_name)
   move(ambig_ncc_file_name_temp, ambig_ncc_file_name)
@@ -1794,6 +1794,11 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   tag = 'reads2_clipped' if is_second else 'reads1_clipped'
   adapt_seqs = adapt_seqs or []
   
+  #if is_second and adapt_seqs: # Reverse complement
+  #  from string import maketrans
+  #  trans_table = maketrans('ATGC', 'TACG')
+  #  adapt_seqs += [seq.translate(trans_table)[::-1] for seq in adapt_seqs]
+        
   sam_file_path = tag_file_name(file_root, '%s_map%d' % (tag, job), '.sam')
   sam_file_path_temp = sam_file_path + TEMP_EXT
   
@@ -2757,7 +2762,7 @@ def write_report(stat_json_file, report_file, second_genome=None):
     tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
     names = ['unique','ambiguous','unmapped']
     colors = ['#80C0FF','#FFFF00','#FF0000']
-    vals, names = pie_values(sam_stats1, names)
+    vals, names = pie_values(sam_stats3, names)
     svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
     y += th
 
@@ -2769,7 +2774,7 @@ def write_report(stat_json_file, report_file, second_genome=None):
     tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
     names = ['unique','ambiguous','unmapped']
     colors = ['#80C0FF','#FFFF00','#FF0000']
-    vals, names = pie_values(sam_stats2, names)
+    vals, names = pie_values(sam_stats4, names)
     svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
     y += th
 
