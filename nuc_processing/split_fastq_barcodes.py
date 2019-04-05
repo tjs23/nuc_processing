@@ -584,14 +584,14 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
         line_2d = readline_2()
 
         if n_reads % 100000 == 0:
-          levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
+          levels = ' '.join(['{:,} > {:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
           n_bc = len(bc_counts)
 
           if max_mismatches:
-            stdout.write("\r  Reads:{:,} Perfect:{:,} Imperfect:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_imperfect, n_bc, levels))
+            stdout.write("\r- Examined:{:,} Perfect:{:,} Imperfect:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_imperfect, n_bc, levels))
 
           else:
-            stdout.write("\r  Reads:{:,} Valid:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_bc, levels))
+            stdout.write("\r - Examined:{:,} Valid:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_bc, levels))
 
           stdout.flush()
 
@@ -755,13 +755,13 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
         line_1d = readline_1()
 
         if n_reads % 100000 == 0:
-          levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
+          levels = ' '.join(['{:,} > {:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
           n_bc = len(bc_counts)
 
           if max_mismatches:
-            stdout.write("\r  Reads:{:,} Perfect:{:,} Imperfect:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_imperfect, n_bc, levels))
+            stdout.write("\r- Examined:{:,} Perfect:{:,} Imperfect:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_imperfect, n_bc, levels))
           else:
-            stdout.write("\r  Reads:{:,} Valid:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_bc, levels))
+            stdout.write("\r- Examined:{:,} Valid:{:,} BCs:{:,} - {}".format(n_reads, n_valid, n_bc, levels))
 
           stdout.flush()
 
@@ -788,18 +788,18 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
   stdout.write("\n") # move the cursor to the next line
 
   if diff_ends:
-    msg1 = 'Found %d read pairs' % n_reads
+    msg1 = 'Found {:,} read pairs' % n_reads
   else:
-    msg1 = 'Found %d read pairs and %d end mismatches (%.3f%%)' % (n_reads, n_mismatched, n_mismatched/float(n_reads))
+    msg1 = 'Found {:,} read pairs with {:,} end mismatches ({:.3f}%)'.format(n_reads, n_mismatched, n_mismatched/float(0.01*n_reads))
 
   if is_paired:
-    msg2 = 'Found unknown base (N) at start of %d and %d reads for respective inputs' % (nn1, nn2)
+    msg2 = 'Found unknown base (N) at start of {:,} and {:,} reads for respective paired inputs'.format(nn1, nn2)
 
   else:
-    msg2 = 'Found unknown base (N) at start of %d reads' % (nn1, )
+    msg2 = 'Found unknown base (N) at start of {:,} reads'.format(nn1, )
 
   levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
-  msg3 = 'Barcode sequences: Expected:{:,} Found:{:,} - {}'.format(len(sample_names), len(bc_counts), levels)
+  msg3 = 'Barcode sequences: Expected:{:,} Found: {}'.format(len(sample_names), levels)
   msg4 = 'Barcode counts: Perfect:{:,} Imperfect:{:,} Unallocated:{:,}'.format(n_valid, n_imperfect, n_lost)
 
   info(msg1)
@@ -811,13 +811,13 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
     for bc_key in sorted(sample_names):
       nb = bc_counts[bc_key]
       bc1, bc2 = bc_key.split('_')
-      msg = '{} barcodes: {} {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc1, bc2, nb, nb/float(100.0*n_reads))
+      msg = '{} barcodes: {} {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc1, bc2, nb, nb/float(0.01*n_reads))
       info(msg)
 
   else:
     for bc_key in sorted(sample_names):
       nb = bc_counts[bc_key]
-      msg = '{} barcode: {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc_key, nb, nb/float(100.0*n_reads))
+      msg = '{} barcode: {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc_key, nb, nb/float(0.01*n_reads))
       info(msg)
 
   _write_analysis_file(bc_counts, sample_names,  analysis_file_path)
