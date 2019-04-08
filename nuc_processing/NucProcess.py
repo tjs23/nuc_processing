@@ -1556,10 +1556,10 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         score_a = int(score_a) # when --local : -nbp*2
 
         if revcomp_a  and (var[-1] == '0'):# Ignore substitutions at end
-          score_a  = min(score_a+5, max_score)
+          score_a = min(score_a+5, max_score)
           
         elif var[0] == '0': # Ignore substitutions at start
-          score_a  = min(score_a+5, max_score)
+          score_a = min(score_a+5, max_score)
 
         ncc_a = (name_a, start_a, end_a, 0, 0, '-' if revcomp_a else '+') # Strand info kept because ends can be different for replicate reads, no Re fragment positions, yet
         contact_a.append((ncc_a, score_a))
@@ -1602,10 +1602,10 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         score_b = int(score_b) # when --local : -nbp*2
 
         if revcomp_b  and (var[-1] == '0'):# Ignore substitutions at end
-          score_b  = min(score_b+5, max_score)
+          score_b = min(score_b+5, max_score)
           
         elif var[0] == '0': # Ignore substitutions at start
-          score_b  = min(score_b+5, max_score)
+          score_b = min(score_b+5, max_score)
 
         ncc_b = (name_b, start_b, end_b, 0, 0, '-' if revcomp_b else '+')
         contact_b.append((ncc_b, score_b))
@@ -1613,9 +1613,9 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
  
         if j == 0:
           if not revcomp_b:
-            n_primary_strand1 += 1
+            n_primary_strand2 += 1
  
-          n_strand1 += 1
+          n_strand2 += 1
 
       line2 = readline2()
       id2 = line2[:ID_LEN]
@@ -1676,13 +1676,13 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
       for ncc_b, score_b in contact_b:
         _write_ncc_line(ncc_a, ncc_b, n_pairs, iid, write_func) # Write all pair combinations where ambigous
       
-        if ncc_a[5] == '+':
-          n_primary_strand1 += frac
-        if ncc_b[5] == '+':
-          n_primary_strand2 += frac
+        #if ncc_a[5] == '+':
+        #  n_primary_strand1 += frac
+        #if ncc_b[5] == '+':
+        #  n_primary_strand2 += frac
         
-        n_strand1 += frac  
-        n_strand2 += frac  
+        #n_strand1 += frac  
+        #n_strand2 += frac  
 
   ncc_file_obj.close()
 
@@ -1695,8 +1695,8 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
            ('ambiguous', (n_ambig, n_pairs)),
            ('total_contacts', n_pairs)]
 
-  log_report('pair', stats, {'pair_primary_strand':((n_primary_strand1, n_strand1),
-                                                    (n_primary_strand2, n_strand2))})
+  log_report('pair', stats, {'primary_strand':((n_primary_strand1, n_strand1),
+                                               (n_primary_strand2, n_strand2))})
 
   move(paired_ncc_file_name_temp, paired_ncc_file_name)
   move(ambig_ncc_file_name_temp, ambig_ncc_file_name)
