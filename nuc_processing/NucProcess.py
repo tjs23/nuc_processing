@@ -1838,6 +1838,15 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
     line2 = readline()[:-1]
     line3 = readline()
     line4 = readline()[:-1]
+    
+    for adapt_seq in adapt_seqs:
+      if adapt_seq[:MIN_ADAPT_OVERLAP] in line2:
+        i = line2.index(adapt_seq[:MIN_ADAPT_OVERLAP])
+        
+        if line2[i:i+len(adapt_seq)] in adapt_seq:
+          line2 = line2[:i]
+          line4 = line4[:i]
+          n_adapt += 1
 
     if junct_seq in line2:
       n_jclip += 1
@@ -1884,26 +1893,16 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
 
     n = len(line2)
     
-    for adapt_seq in adapt_seqs:
-      if adapt_seq[:MIN_ADAPT_OVERLAP] in line2:
-        i = line2.index(adapt_seq[:MIN_ADAPT_OVERLAP])
-        
-        if line2[i:i+len(adapt_seq)] in adapt_seq:
-          line2 = line2[:i]
-          line4 = line4[:i]
-          n_adapt += 1
-    
-    else:
-      if n < min_len:
-        n_short += 1
+    if n < min_len:
+      n_short += 1
 
-      else:
-        mean_len += len(line2)
-        line1 = '@%10.10d_%s' % (n_reads, line1[1:])
-        write('%s%s\n%s%s\n' % (line1, line2, line3, line4))
+    else:
+      mean_len += len(line2)
+      line1 = '@%10.10d_%s' % (n_reads, line1[1:])
+      write('%s%s\n%s%s\n' % (line1, line2, line3, line4))
  
-      if max_reads_in and n_reads >= max_reads_in:
-        break
+    if max_reads_in and n_reads >= max_reads_in:
+      break
     
     line1 = readline()
 
