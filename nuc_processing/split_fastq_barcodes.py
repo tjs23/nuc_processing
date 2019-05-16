@@ -810,15 +810,15 @@ def split_fastq_barcodes(fastq_paths, bc_file_path=None, analysis_file_path=None
   if diff_ends:
     for bc_key in sorted(sample_names):
       nb = bc_counts[bc_key]
-      msg = '{} barcode: {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc_key, nb, nb/float(100.0*n_reads))
-      info(msg)
+      bc1, bc2 = bc_key.split('_')
+      msg = '{} barcodes: {} {} count {:,} ({:.2f}%)'
+      info(msg.format(sample_names[bc_key], bc1, bc2, nb, nb/float(100.0*n_reads)))
 
   else:
     for bc_key in sorted(sample_names):
       nb = bc_counts[bc_key]
-      bc1, bc2 = bc_key.split('_')
-      msg = '{} barcodes: {} {} count {:,} ({:.2f}%)'.format(sample_names[bc_key], bc1, bc2, nb, nb/float(100.0*n_reads))
-      info(msg)
+      msg = '{} barcode: {} count {:,} ({:.2f}%)'
+      info(msg.format(sample_names[bc_key], bc_key, nb, nb/float(100.0*n_reads)))
 
   _write_analysis_file(bc_counts, sample_names,  analysis_file_path)
 

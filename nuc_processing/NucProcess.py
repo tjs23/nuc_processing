@@ -741,7 +741,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, sizes=(100,2000), keep_fil
 
     re1_a_start, re1_a_end, mappability_a = re1_frag_dict[chr_a][re1_a_idx]
     re1_b_start, re1_b_end, mappability_b = re1_frag_dict[chr_b][re1_b_idx]
-
+    
     # record fragment lengths...
 
     if pos_strand_a:
