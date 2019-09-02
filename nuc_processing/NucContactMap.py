@@ -296,7 +296,7 @@ def load_ncc(ncc_path):
 
   with open(ncc_path) as in_file_obj:
     for line in in_file_obj:
-      chr_a, f_start_a, f_end_a, start_a, end_a, strand_a, chr_b, f_start_b, f_end_b, start_b, end_b, strand_b, ambig_group, pair_id, swap_pair = line.split()
+      chr_a, f_start_a, f_end_a, start_a, end_a, strand_a, chr_b, f_start_b, f_end_b, start_b, end_b, strand_b, ambig_group, read_id, swap_pair = line.split()
 
       f_start_a = int(f_start_a)
       f_end_a = int(f_end_a)
@@ -306,7 +306,7 @@ def load_ncc(ncc_path):
       f_end_b = int(f_end_b)
       start_b = int(start_b)
       end_b = int(end_b)
-      ambig_group = int(ambig_group)
+      ambig_group = int(read_id)
 
       if chr_a in chromo_limits:
         s, e = chromo_limits[chr_a]

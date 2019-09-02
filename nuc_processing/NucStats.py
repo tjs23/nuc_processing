@@ -1,7 +1,7 @@
 """
 ---- COPYRIGHT ----------------------------------------------------------------
 
-Copyright (C) 20016-2017
+Copyright (C) 20016-2019
 Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
 
 
@@ -36,8 +36,7 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 
 """
 
-import json
-import os
+import os, sys, json
 
 from .NucProcess import warn, fatal
 from .NucContactMap import load_ncc, _get_num_isolated, _get_trans_dev, _get_mito_fraction
