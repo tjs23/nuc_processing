@@ -76,7 +76,7 @@ DEFAULT_MIN_QUAL = 10
 QUAL_ZERO_ORDS = {'phred33':33, 'phred64':64, 'solexa':64}
 FASTQ_READ_CHUNK = 1048576
 READ_BUFFER = 2**16
-MIN_READ_LEN = 20
+MIN_READ_LEN = 18
 NUM_MAP_FASTAS = 10
 CLOSE_AMBIG = 1000
 EXCLUDE_BIN_SIZE = 100000
@@ -428,6 +428,7 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=100000):
   group_counts = [0,0,0,0] # near, far, trans, homolog
   
   group = set()
+  group_add = group.add
   
   with open(ncc_file) as in_file_obj:
     for line in in_file_obj:
@@ -448,9 +449,10 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=100000):
           
         # Either group is unary or the code is prioritised for homolog > trans > far > near
         # - cold be aonly a single code index for a consistent ambigous group
-        group_counts[max(group)] += 1
-        group = set()
-        group_add = group.add
+        if group:
+          group_counts[max(group)] += 1
+          group = set()
+          group_add = group.add
       
       else:
         n_ambig_pairs += 1
@@ -463,7 +465,7 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=100000):
 
       else:
         idx1 = 4 if line_data[5] == '+' else 3  # + strand : Ligation junction is ahead at 3' end of RE frag
-        idx2 = 10 if ine_data[11] == '+' else 9
+        idx2 = 10 if line_data[11] == '+' else 9
 
         p1 = int(line_data[idx1])
         p2 = int(line_data[idx2])
@@ -475,11 +477,11 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=100000):
   
   if group:
     group_counts[max(group)] += 1
-          
+
   stats = [('total_contacts', n_contacts),
            ('ambig_contacts', (n_ambig, n_contacts)),
            ('total_pairs', n_pairs),
-           ('mean_ambiguity', n_ambig_pairs/float(n_ambig))
+           ('mean_ambiguity', n_ambig_pairs/float(n_ambig)),
            ('cis_near',(group_counts[0], n_contacts)),
            ('cis_far',(group_counts[1], n_contacts)),
            ('trans',(group_counts[2], n_contacts)),
@@ -3373,7 +3375,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     out_file = check_file_extension(out_file, '.ncc')
   else:
     out_file = file_root + '.ncc'
-
+ 
   if ambig:
     ambig_file = file_root + '_ambig.ncc'
 
@@ -3394,6 +3396,26 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   STAT_FILE_PATH = file_root + '_stats.json'
   VERBOSE = bool(verbose)
   INTERRUPTED = is_interrupted_job()
+  
+  # # # # # 
+  
+  if os.path.exists(out_file):
+    final_stats = get_ncc_stats(out_file, hom_chromo_dict)
+    log_report('final', final_stats)
+
+    write_report(STAT_FILE_PATH, report_file)
+
+    n_contacts = final_stats[0][1]
+
+    if n_contacts > 1:
+      nuc_contact_map(out_file, '_contact_map')
+
+    info('Nuc Process all done.')
+
+    return out_file
+    
+  # # # # # 
+  
 
   # Check for no upper fragment size limit
   if len(sizes) == 1:

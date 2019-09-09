@@ -37,6 +37,7 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 """
 
 import os, json, sys, math
+import numpy as np
 
 from collections import defaultdict
 from matplotlib import pyplot as plt
@@ -155,9 +156,44 @@ def _table(ax, title, data,  table_color, fontsize=9):
   ax.set_ylim(y+1, 0.0)
   ax.set_axis_off()
   
+def _pie_values(data, names):
+
+  sizes = []
+  names_2 = []
+
+  data = dict(data)
+
+  for key in names:
+    val = data[key]
+
+    if isinstance(val, (tuple, list)):
+      val, n = val
+    sizes.append(val)
+    name = key.replace('_', ' ')
+    name = name[0].upper() + name[1:]
+    names_2.append(name)
+
+  if sizes and sum(sizes):
+    return sizes, names_2
+
+  else:
+    return [100], ['No data']
+
+
+def _pie_label(pct):
+  return "{:.1f}%".format(pct)
+
+
+def _pie_chart(ax, stats, labels, colors):
+  
+  vals, labels = _pie_values(stats, labels)
+  wedges, texts, autotexts = ax.pie(vals, autopct=lambda percent: _pie_label(percent),
+                                    labels=None, colors=colors, textprops=dict(color="w", fontsize=7))   
+  ax.legend(wedges, labels, loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+
 
 def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_width=8.0, dpi=300, table_color='#006464'):
- 
+  
   with open(json_stat_path) as file_obj:
     stat_dict = json.load(file_obj)
     
@@ -173,9 +209,7 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
   
   fig = plt.figure()
   fig.set_size_inches(fig_width, fig_width * 1.61803398875)
-  
-  
-  
+   
   if len(stat_dict['command']) == 1:
     command = stat_dict['command'][0][1]
     version = '1.1.0'
@@ -193,10 +227,74 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
   ax = fig.add_axes([0.05, 0.30, 0.9, 0.30])
   _table(ax, 'Command used', [[command]], table_color)
   
+  if pdf:
+    pdf.savefig(dpi=dpi)
+  else:
+    plt.show()  
   
   # Clip, align, pair
   
+  fig = plt.figure()
+  fig.set_size_inches(fig_width, fig_width * 1.61803398875)
   
+  ax = fig.add_axes([0.05, 0.85, 0.4, 0.10])  
+  _table(ax, 'Clipping reads 1', _format_list(stat_dict['clip_1']), table_color)
+  
+  ax = fig.add_axes([0.55, 0.87, 0.4, 0.08])  
+  hist, hist2, edges = stat_dict['re1_pos_1']
+  
+  ax.plot(edges, hist, color='#FF0000', alpha=0.5, label='Unligated')
+  ax.plot(edges, hist2, color='#0090FF', alpha=0.5, label='Ligated')
+  ax.set_xlabel('Read RE1 site position', fontsize=9)
+  ax.set_ylabel('% Reads', fontsize=9)
+  
+  ax = fig.add_axes([0.05, 0.74, 0.4, 0.1])  
+  _table(ax, 'Clipping reads 2', _format_list(stat_dict['clip_2']), table_color)
+
+  ax = fig.add_axes([0.55, 0.76, 0.4, 0.08])  
+  hist, hist2, edges = stat_dict['re1_pos_2']
+  
+  ax.plot(edges, hist, color='#FF0000', alpha=0.5, label='Unligated')
+  ax.plot(edges, hist2, color='#0090FF', alpha=0.5, label='Ligated')
+  ax.set_xlabel('Read RE1 site position', fontsize=9)
+  ax.set_ylabel('% Reads', fontsize=9)
+  
+  sam_stats1 = stat_dict['map_1']
+  sam_stats2 = stat_dict['map_2']
+  
+  sam_stats1.append(('primary_strand', stat_dict['primary_strand'][0]))
+  sam_stats2.append(('primary_strand', stat_dict['primary_strand'][1]))
+ 
+  ax = fig.add_axes([0.05, 0.63, 0.4, 0.10]) 
+  _table(ax, 'Genome alignment reads 1', _format_list(sam_stats1), table_color)
+      
+  ax = fig.add_axes([0.50, 0.63, 0.15, 0.10])
+  _pie_chart(ax, sam_stats1, ['unique','ambiguous','unmapped'], ['#0090FF','#D0D000','#FF0000'])
+     
+  ax = fig.add_axes([0.05, 0.52, 0.4, 0.10]) 
+  _table(ax, 'Genome alignment reads 2', _format_list(sam_stats2), table_color)
+  
+  ax = fig.add_axes([0.50, 0.52, 0.15, 0.10])
+  _pie_chart(ax, sam_stats2, ['unique','ambiguous','unmapped'], ['#0090FF','#D0D000','#FF0000'])
+  
+  if 'map_3' in stat_dict:
+    sam_stats3 = stat_dict['map_3']
+    sam_stats4 = stat_dict['map_4']
+    sam_stats3.append(('primary_strand', stat_dict['primary_strand'][2]))
+    sam_stats4.append(('primary_strand', stat_dict['primary_strand'][3]))
+
+    ax = fig.add_axes([0.05, 0.41, 0.45, 0.10])
+    _table(ax, 'Genome alignment 2 reads 1', _format_list(sam_stats3), table_color)
+   
+    ax = fig.add_axes([0.50, 0.41, 0.15, 0.10])
+    _pie_chart(ax, sam_stats3, ['unique','ambiguous','unmapped'], ['#0090FF','#D0D000','#FF0000'])
+
+    ax = fig.add_axes([0.05, 0.30, 0.45, 0.10])
+    _table(ax, 'Genome alignment 2 reads 2', _format_list(sam_stats4), table_color)
+
+    ax = fig.add_axes([0.50, 0.30, 0.15, 0.10])
+    _pie_chart(ax, sam_stats4, ['unique','ambiguous','unmapped'], ['#0090FF','#D0D000','#FF0000'])
+   
   # Filter
   
 
@@ -227,7 +325,7 @@ def main(argv=None):
   arg_parse.add_argument(metavar='JSON_FILE', nargs='+', dest='i',
                          help='One or more JSN statistics files as output from nuc_process. Wildcards accepted.')
 
-  arg_parse.add_argument('-o', '--pdf-out', metavar='OUT_FILE', default=None, dest='o',
+  arg_parse.add_argument('-o', '--pdf-out', metavar='OUT_FILE', nargs='+', default=None, dest='o',
                          help='One or more ptional output file PDF names; to match corresponding input files. ' \
                               'Defaults based on the input JSON files will be used if not specified')
 
