@@ -43,8 +43,6 @@ from io import BufferedReader
 from collections import defaultdict
 from shutil import move
 from subprocess import Popen, PIPE, call
-from .nuc_process_report import nuc_process_report
-from ..nuc_tools.tools.contact_map import contact_map
 
 PROG_NAME = 'nuc_process'
 VERSION = '1.2.1'
@@ -614,7 +612,7 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
     if use_re_fragments: # E.g. single-cell
       for line in in_file_obj:
         ambig, read_id = line.split()[12:14]
-        ambig = int(float(ambig,)))
+        ambig = int(float(ambig))
 
         if read_id in excluded_reads:
           continue
@@ -635,7 +633,7 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
     else: # E.g. bulk/population
       for line in in_file_obj:
         ambig, read_id = line.split()[12:14]
-        ambig = int(float(ambig,)))
+        ambig = int(float(ambig))
 
         if read_id in excluded_reads:
           continue
@@ -2689,350 +2687,6 @@ def get_fastq_qual_scheme(file_path):
   return scheme
 
 
-def write_report(stat_json_file, report_file, second_genome=None):
-
-  with open(stat_json_file) as file_obj:
-    stat_dict = json.load(file_obj)
-  
-  command = stat_dict['command'][0][1]
-  general_stats = stat_dict['general']
-  sam_stats1 = stat_dict['map_1']
-  sam_stats2 = stat_dict['map_2']
-  
-  sam_stats1.append(('primary_strand', stat_dict['primary_strand'][0]))
-  sam_stats2.append(('primary_strand', stat_dict['primary_strand'][1]))
-  second_genome = 'map_3' in stat_dict
-
-  if second_genome:
-    sam_stats3 = stat_dict['map_3']
-    sam_stats4 = stat_dict['map_4']
-    sam_stats3.append(('primary_strand', stat_dict['primary_strand'][2]))
-    sam_stats4.append(('primary_strand', stat_dict['primary_strand'][3]))
-    
-  pair_stats = stat_dict['pair']
-  filter_stats = stat_dict['filter']
-  redundancy_stats = stat_dict.get('dup')
-  promiscuity_stats = stat_dict.get('promsic')
-  final_stats = stat_dict['final']
-  frag_sizes = stat_dict['frag_sizes']
-
-  def format_list(d):
-
-    l = []
-    for k, v in d:
-      c1 = k.replace('_', ' ')
-      c1 = c1[0].upper() + c1[1:]
-
-      if isinstance(v, (tuple, list)):
-        v, n = v
-        percent = 100.0 * v/float(n or 1)
-        c2 = '{:,}'.format(v)
-        c3 = '{:.2f}%'.format(percent)
-
-      elif isinstance(v, int):
-        c2 = '{:,}'.format(v)
-        c3 = None
-
-      elif isinstance(v, float):
-        c2 = '{:.3f}'.format(v)
-        c3 = None
-
-      else:
-        c2 = v
-        c3 = None
-
-      l.append([c1, c2, c3])
-
-    return l
-
-  def pie_values(data, names):
-
-    sizes = []
-    names_2 = []
-
-    data = dict(data)
-
-    for key in names:
-      val = data[key]
-
-      if isinstance(val, (tuple, list)):
-        val, n = val
-      sizes.append(val)
-      name = key.replace('_', ' ')
-      name = name[0].upper() + name[1:]
-      names_2.append(name)
-
-    if sizes and sum(sizes):
-      return sizes, names_2
-
-    else:
-      return [100], ['No data']
-
-  svg_doc = SvgDocument()
-
-  head_color = 'black'
-  main_color = '#006464'
-  head_size = 20
-  head_height = 32
-  head_pad = 7
-  main_pad = 16
-  row_size = 16
-  table_width = 800
-  chart_height = 7 * row_size
-  text_anchors = ['start','end','end']
-
-  x = main_pad
-  x1 = x + table_width/2 + main_pad
-
-  y = 0
-  y += head_height
-
-  title = '%s version %s report' % (PROG_NAME, VERSION)
-  svg_doc.text(title, (x,y), head_size, bold=True, color=main_color)
-  y += head_height
-  
-  y += head_pad
-  svg_doc.text('Command used', (x,y), head_size, bold=True, color=head_color)
-  y += head_pad
-  
-  y += head_pad
-  y += head_pad
-  
-  cmd_size = 10
-  
-  while command:
-    text = command[:80]
-    command = command[80:]
-    svg_doc.text(text, (x,y), cmd_size, bold=False, font='monospace', color=main_color)
-    y += cmd_size + 4
-  
-  y += head_pad
-
-  y += head_pad
-  svg_doc.text('Input parameters', (x,y), head_size, bold=True, color=head_color)
-  y += head_pad
-
-  data = format_list(general_stats)
-  tw, th = svg_doc.table(x, y, table_width, data, False, col_formats=None, size=row_size, main_color=main_color)
-  y += th
-
-  if 'clip_1' in stat_dict:
-    clip_stats1 = stat_dict['clip_1']
-    re1_pos_1 = stat_dict['re1_pos_1']
-    
-    y += head_height
-    svg_doc.text('Clipping reads 1', (x,y), head_size, bold=True, color=head_color)
-
-    y += head_pad
-    data = format_list(clip_stats1)
-    tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-
-    hist, hist2, edges = re1_pos_1
-    data_set = [(edges[i], val) for i, val in enumerate(hist)]
-    data_set2 = [(edges[i], val) for i, val in enumerate(hist2)]
-    svg_doc.graph(x1, y, table_width/2-20, th-20, [data_set, data_set2], 'Read RE1 site position', '% Reads',
-                  names=['Unligated','Ligated'], colors=['#FF0000','#80C0FF'],  graph_type='line',
-                  symbols=None, line_widths=None, symbol_sizes=None,
-                  legend=False, title=None, plot_offset=(50, 0))
-    svg_doc.text('Unligated', (x1+table_width/4,y+22), 14, bold=False, color='#FF0000')
-    svg_doc.text('Ligated', (x1+table_width/4,y+40), 14, bold=False, color='#80C0FF')
-    y += th
-
-  if 'clip_2' in stat_dict:
-    clip_stats2 = stat_dict['clip_2']
-    re1_pos_2 = stat_dict['re1_pos_2']
-    
-    y += head_height
-    svg_doc.text('Clipping reads 2', (x,y), head_size, bold=True, color=head_color)
-
-    y += head_pad
-    data = format_list(clip_stats2)
-    tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
- 
-    hist, hist2, edges = re1_pos_2
-    data_set = [(edges[i], val) for i, val in enumerate(hist)]
-    data_set2 = [(edges[i], val) for i, val in enumerate(hist2)]
-    svg_doc.graph(x1, y, table_width/2-20, th-20, [data_set, data_set2], 'Read RE1 site position', '% Reads',
-                  names=['Unligated','Ligated'], colors=['#FF0000','#80C0FF'],  graph_type='line',
-                  symbols=None, line_widths=None, symbol_sizes=None,
-                  legend=False, title=None, plot_offset=(50, 0))
-    svg_doc.text('Unligated', (x1+table_width/4,y+22), 14, bold=False, color='#FF0000')
-    svg_doc.text('Ligated', (x1+table_width/4,y+40), 14, bold=False, color='#80C0FF')
-
-  y += th
-  
-  y += head_height
-  svg_doc.text('Genome alignment reads 1', (x,y), head_size, bold=True, color=head_color)
-
-  y += head_pad
-  data = format_list(sam_stats1)
-  tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-  names = ['unique','ambiguous','unmapped']
-  colors = ['#80C0FF','#FFFF00','#FF0000']
-  vals, names = pie_values(sam_stats1, names)
-  svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
-  y += th
-
-  y += head_height
-  svg_doc.text('Genome alignment reads 2', (x,y), head_size, bold=True, color=head_color)
-
-  y += head_pad
-  data = format_list(sam_stats2)
-  tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-  names = ['unique','ambiguous','unmapped']
-  colors = ['#80C0FF','#FFFF00','#FF0000']
-  vals, names = pie_values(sam_stats2, names)
-  svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
-  y += th
-
-  if second_genome:
-    y += head_height
-    svg_doc.text('Genome alignment 2 reads 1', (x,y), head_size, bold=True, color=head_color)
-
-    y += head_pad
-    data = format_list(sam_stats3)
-    tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-    names = ['unique','ambiguous','unmapped']
-    colors = ['#80C0FF','#FFFF00','#FF0000']
-    vals, names = pie_values(sam_stats3, names)
-    svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
-    y += th
-
-    y += head_height
-    svg_doc.text('Genome alignment 2 reads 2', (x,y), head_size, bold=True, color=head_color)
-
-    y += head_pad
-    data = format_list(sam_stats4)
-    tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-    names = ['unique','ambiguous','unmapped']
-    colors = ['#80C0FF','#FFFF00','#FF0000']
-    vals, names = pie_values(sam_stats4, names)
-    svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
-    y += th
-
-  y += head_height
-  svg_doc.text('Pairing reads', (x,y), head_size, bold=True, color=head_color)
-
-  y += head_pad
-  data = format_list(pair_stats)
-  tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-
-  if second_genome:
-    names = ['unique','genome_ambiguous','position_ambiguous','unmapped_end']
-    colors = ['#80C0FF','#C0C0C0','#FFFF00','#FF0000']
-
-  else:
-    names = ['unique','ambiguous','unmapped_end']
-    colors = ['#80C0FF','#FFFF00','#FF0000']
-
-  vals, names = pie_values(pair_stats, names)
-  svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
- 
-  
-  y += th
-
-  y += head_height
-  svg_doc.text('Filtering pairs', (x,y), head_size, bold=True, color=head_color)
-
-  y += head_pad
-  data = format_list(filter_stats)
-  tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-  names = ['accepted','internal_re1','adjacent_re1','circular_re1', 'overhang_re1',
-           'too_close','too_small','too_big',
-           'internal_re2','no_end_re2', 'unknown_contig']
-  colors = ['#80C0FF','#FFFF00','#FF0000','#C0C0C0','#FF0080',
-            '#00FFFF','#00C0C0','#008080',
-            '#40FF40','#008000','#404040']
-  vals, names = pie_values(filter_stats, names)
-  svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080', small_val=0.01)
-
-    
-   
-  y += th
-  y += head_height
-  svg_doc.text('Size analysis', (x,y), head_size, bold=True, color=head_color)
-  y += head_pad
-  y += head_pad
-  
-  hist1, hist2, hist3, edges1, hist4, hist5, edges2 = frag_sizes
-  xt = table_width/4
-  
-  data_set1 = zip(edges2, hist4)
-  data_set2 = zip(edges2, hist5)
-  
-  svg_doc.graph(x, y, table_width*0.65, chart_height,
-                [data_set1, data_set2], 'RE1 site separation', 'Reads/bp',
-                names=['+ strand','- strand'], colors=['#FF0000', '#80C0FF'],  graph_type='line',
-                symbols=None, line_widths=None, symbol_sizes=None, y_log_base=10,
-                legend=True, title=None, plot_offset=(55, 0))
-
-  y += chart_height
-  y += head_height
-  y += head_pad
-  y += head_pad
-
-  data_set1 = zip(edges1, hist1)
-  data_set2 = zip(edges1, hist2)
-  data_set3 = zip(edges1, hist3)
-  svg_doc.graph(x, y, table_width*0.65, chart_height,
-                [data_set1, data_set2, data_set3], 'Fragment size', '% Pairs',
-                names=['All','Cis accepted','Trans accepted'], colors=['#FF0000', '#BBBB00','#80C0FF'],  graph_type='line',
-                symbols=None, line_widths=None, symbol_sizes=None, x_log_base=10,
-                legend=True, title=None, plot_offset=(55, 0))
-
-  y += chart_height
-  y += head_height
-  y += head_pad
-
-  if redundancy_stats is not None:
-    y += head_height
-    svg_doc.text('Duplicate removal', (x,y), head_size, bold=True, color=head_color)
-
-    y += head_pad
-    data = format_list(redundancy_stats)
-    tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-    names = ['redundant','unique',]
-    colors = ['#80C0FF','#FFFF00']
-    vals, names = pie_values(redundancy_stats, names)
-    svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
-    y += th
-
-  if promiscuity_stats is not None:
-    y += head_height
-    svg_doc.text('Promiscuous pair removal', (x,y), head_size, bold=True, color=head_color)
-
-    y += head_pad
-    data = format_list(promiscuity_stats)
-    tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-    names = ['clean','resolved','promiscuous']
-    colors = ['#80C0FF','#FFFF00','#FF0000']
-    vals, names = pie_values(promiscuity_stats, names)
-    svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
-    y += th
-
-  y += head_height
-  svg_doc.text('Final output', (x,y), head_size, bold=True, color=head_color)
-
-  y += head_pad
-  data = format_list(final_stats)
-  tw, th = svg_doc.table(x, y, table_width/2, data, False, text_anchors, col_formats=None, size=row_size, main_color=main_color)
-  names = ['trans','cis_far','cis_near']
-  colors = ['#80C0FF','#FFFF00','#FF0000']
-  
-  if second_genome:
-    names.append('homolog_trans')
-    colors.append('#C0C0C0')
-
-  vals, names = pie_values(final_stats, names)
-  svg_doc.pie_chart(x1, y, chart_height, vals, names, colors, line_color='#808080')
-  y += th
-
-  height = y + main_pad
-  width = table_width + 3 * main_pad
-
-  svg_doc.write_file(report_file, width, height)
-
-
 def log_report(section, data_pairs, extra_dict=None):
 
   def format_val(val):
@@ -3211,7 +2865,12 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   """
   Main function for command-line operation
   """
-
+  
+  
+  print sys.path
+  from .nuc_process_report import nuc_process_report
+  from nuc_tools.tools.contact_map import contact_map
+  
   genome_indices = [genome_index]
   if genome_index2:
     if not (chr_names1 and chr_names2):
@@ -3400,26 +3059,6 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   VERBOSE = bool(verbose)
   INTERRUPTED = is_interrupted_job()
   
-  # # # # # 
-  
-  if os.path.exists(out_file):
-    final_stats = get_ncc_stats(out_file, hom_chromo_dict)
-    log_report('final', final_stats)
-
-    write_report(STAT_FILE_PATH, report_file)
-
-    n_contacts = final_stats[0][1]
-
-    if n_contacts > 1:
-      nuc_contact_map(out_file, '_contact_map')
-
-    info('Nuc Process all done.')
-
-    return out_file
-    
-  # # # # # 
-  
-
   # Check for no upper fragment size limit
   if len(sizes) == 1:
     size_str = '%d - unlimited' % tuple(sizes)
@@ -3876,4 +3515,5 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
+  sys.path.append(os.path.dirname(os.path.dirname(__file__)))
   main()
