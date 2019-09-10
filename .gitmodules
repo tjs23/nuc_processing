@@ -1,0 +1,3 @@
+[submodule "nuc_tools"]
+	path = nuc_tools
+	url = git@github.com:lmb-seq/nuc_tools.git

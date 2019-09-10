@@ -43,8 +43,8 @@ from io import BufferedReader
 from collections import defaultdict
 from shutil import move
 from subprocess import Popen, PIPE, call
-from .NucSvg import SvgDocument
-from .NucContactMap import nuc_contact_map
+from .nuc_process_report import nuc_process_report
+from ..nuc_tools.tools.contact_map import contact_map
 
 PROG_NAME = 'nuc_process'
 VERSION = '1.2.1'
@@ -511,12 +511,14 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
   # Calculate sizes of ambiguity groups
 
   ambig_sizes = {}
+  n_contacts = 0
   for line in open_file_r(ncc_file):
     ambig, read_id = line.split()[12:14]
     ambig = int(float(ambig,))
     
     if ambig > 0:
       ambig_sizes[read_id] = ambig
+      n_contacts += 1
 
   # Make temporary sorted file
   cmd_args = ['sort', ncc_file]
@@ -525,7 +527,6 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
 
   n_unique = 0
   n_redundant = 0
-  n_pairs = 0
   mean_redundancy = 0.0
 
   # Compare using strand information given we want to know which fragment END is used
@@ -553,7 +554,6 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
     # Normally remove redundancy, keeping the least ambiguous or else the longest
     # - for hybrid dual-genome mapping go for the most ambiguous to be safe
     for line in sort_file_obj:
-      n_pairs += 1
       line_data = line.split()
       curr_data = [line_data[i] for i in ncc_idx]
       len_curr = abs(int(line_data[2]) - int(line_data[1])) + abs(int(line_data[8]) - int(line_data[7]))
@@ -606,43 +606,47 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
   
   # Remove excluded ambig groups and non-supported, preserving original file order
 
-  n_excluded = 0
-
+  n_excluded = len(excluded_reads)
+  
   with open(ncc_file) as in_file_obj, open(out_file_name, 'w') as out_file_obj:
     write = out_file_obj.write
     
     if use_re_fragments: # E.g. single-cell
       for line in in_file_obj:
-        read_id = line.split()[13]
+        ambig, read_id = line.split()[12:14]
+        ambig = int(float(ambig,)))
 
         if read_id in excluded_reads:
-          n_excluded += 1
+          continue
 
         elif group_reps[read_id]/float(ambig_sizes[read_id]) < min_repeats:
           if keep_files:
             uniq_write(line)
-            
-          n_unique += 1
+          
+          if ambig > 0: 
+            n_unique += 1
 
         else:
           write(line)
-          n_redundant += 1
+          
+          if ambig > 0: 
+            n_redundant += 1
     
     else: # E.g. bulk/population
       for line in in_file_obj:
-        read_id = line.split()[13]
+        ambig, read_id = line.split()[12:14]
+        ambig = int(float(ambig,)))
 
         if read_id in excluded_reads:
-          n_excluded += 1
           continue
-
-        elif group_reps[read_id]/float(ambig_sizes[read_id]) < 2:
-          n_unique += 1
-
-        else:
-          n_redundant += 1
+        
+        if ambig > 0:
+          if group_reps[read_id]/float(ambig_sizes[read_id]) < 2:
+             n_unique += 1
+          else:
+             n_redundant += 1
           
-        write(line)   
+        write(line)
   
   if keep_files:
     if zip_files:
@@ -659,8 +663,8 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
   n = n_unique + n_redundant
   mean_redundancy /= float(n) or 1.0
 
-  stats = [('input_pairs', n_pairs),
-           ('defunct_ambig_group', (n_excluded, n)),
+  stats = [('input_contacts', n_contacts),
+           ('defunct_ambig_group', (n_excluded, n_contacts)),
            ('unique', (n_unique, n)),
            ('redundant', (n_redundant, n)),
            ('mean_redundancy', mean_redundancy)]
@@ -710,7 +714,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
   
   for tag in ('accepted', 'too_small', 'too_big', 'circular_re1', 'internal_re1',
               'internal_re2', 'no_end_re2', 'overhang_re1', 'too_close',
-              'adjacent_re1', 'unknown_contig', 'excluded_ambig_group'):
+              'adjacent_re1', 'unknown_contig', 'excluded_group'):
     counts[tag] = 0
     if keep_files or (tag == 'accepted'):
       if tag == 'accepted':
@@ -728,7 +732,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
   counts['far_cis_pairs'] = 0
   counts['trans_pairs'] = 0
   counts['input_pairs'] = 0
-  counts['excluded_ambig_group_member'] = 0
+  counts['excluded_group_member'] = 0
 
   def count_write(tag, line):
     counts[tag] += 1
@@ -1024,12 +1028,12 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
       read_id = int(line.split()[13])
 
       if read_id in excluded_reads:
-        count_write('excluded_ambig_group', line)
+        count_write('excluded_group', line)
 
       else:
         write(line)
 
-  counts['accepted'] -= counts['excluded_ambig_group']
+  counts['accepted'] -= counts['excluded_group']
 
   for tag in out_file_objs:
     out_file_objs[tag].close()
@@ -1038,9 +1042,8 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
   stats_list = []
   for key in ('input_pairs', 'accepted', 'near_cis_pairs', 'far_cis_pairs', 'trans_pairs',
               'internal_re1', 'adjacent_re1', 'circular_re1', 'overhang_re1',
-              'too_close', 'too_small', 'too_big', 'excluded_ambig_group',
-              'internal_re2', 'no_end_re2',
-              'unknown_contig'):
+              'too_close', 'too_small', 'too_big', 'excluded_group',
+              'internal_re2', 'no_end_re2', 'unknown_contig'):
 
     stats_list.append((key, (counts[key], n))) # So percentages can be calculated in reports
 
@@ -3610,15 +3613,17 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
       os.unlink(sam_file4)
   
   final_stats = get_ncc_stats(out_file, hom_chromo_dict)
+  
   log_report('final', final_stats)
-
-  write_report(STAT_FILE_PATH, report_file)
-
-  n_contacts = final_stats[0][1]
+  
+  nuc_process_report(STAT_FILE_PATH, report_file)
 
   if n_contacts > 1:
-    nuc_contact_map(out_file, '_contact_map')
+    pdf_path = '{}_contact_map.pdf'.format(os.path.splitext(out_file)[0])
 
+    contact_map(out_file, pdf_path, bin_size=None, bin_size2=250.0,
+                no_separate_cis=False, is_single_cell=not is_pop_data)
+                
   info('Nuc Process all done.')
 
   return out_file

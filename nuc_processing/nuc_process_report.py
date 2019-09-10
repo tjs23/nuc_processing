@@ -47,9 +47,9 @@ PROG_NAME = 'nuc_process_report'
 VERSION = '1.0.0'
 DESCRIPTION = 'Tool to present sequence processing reports from nuc_process in PDF format, given a JSON input'
 
-def _format_list(d):
+def _format_table_data(d, max_nchar=70):
 
-  l = []
+  data = []
   for k, v in d:
     c1 = k.replace('_', ' ')
     c1 = c1[0].upper() + c1[1:]
@@ -70,25 +70,10 @@ def _format_list(d):
     else:
       row += [v]
 
-    l.append(row)
-
-  return l
-
-
-def _table(ax, title, data,  table_color, fontsize=9):
-  
-  n_rows = 1 # Title
-  col_sz = defaultdict(int)
-  row_sz = defaultdict(int) 
-  
-  if len(data[0]) > 2:
-    max_nchar = 30
-    
-  elif len(data[0]) > 1:  
-    max_nchar = 70  
+    data.append(row)
  
-  else:
-    max_nchar = 100
+  col_widths = defaultdict(int)
+  row_heights = defaultdict(int)
   
   for i, row in enumerate(data):
     ht = 1
@@ -96,65 +81,87 @@ def _table(ax, title, data,  table_color, fontsize=9):
       text = text.strip()
       
       if len(text) > max_nchar:
-        parts = text.split()
+        parts = []
         
-        if parts:
-          n = 0
-          parts2 = [parts[0]]
-          for part in parts[1:]:
-            if len(parts2[-1]) + len(part) < max_nchar-1:
-              parts2[-1] = parts2[-1] + ' ' + part
+        for part in text.split():
+          if len(part) > max_nchar:
+            while part:
+              parts.append(part[:max_nchar])
+              part = part[max_nchar:]
             
-            else:
-              parts2.append(part)
-          parts = parts2
+          else:
+            parts.append(part)
+        
+        n = 0
+        parts2 = [parts[0]]
+        for part in parts[1:]:
+          if len(parts2[-1]) + len(part) < max_nchar-1:
+            parts2[-1] = parts2[-1] + ' ' + part
           
-        else:
-          parts = []
-          while text:
-            parts.append(text[:max_nchar])
-            text = text[max_nchar:]
-      
+          else:
+            parts2.append(part)
+        parts = parts2
+        
+
         text = '\n'.join(parts)
       
       nl = text.count('\n') + 1
       ht = max(nl, ht)
       wd = max_nchar if nl > 1 else len(text)
-      col_sz[j] = max(col_sz[j], wd)
+      col_widths[j] = max(col_widths[j], wd)
       row[j] = text
        
-    row_sz[i] = ht
-    n_rows += ht
+    row_heights[i] = ht
   
-  n_char = sum(col_sz.values())
+  char_height = sum(row_heights.values()) + 1 # Title
+  char_width = sum(col_widths.values())
+  
+  return data, char_width, char_height, col_widths, row_heights
+
+
+def _table(figure, y_start, title, table_data,  table_color, fontsize=9, x_start=0.05, dx=0.4, linespacing=1.5):
+  
+  width, height = figure.get_size_inches()
+  
+  data, char_width, char_height, col_widths, row_heights = _format_table_data(table_data)
+    
+  # points * inches_scale / inches_height  
+  dy = linespacing * (char_height * fontsize * 0.0138889)/height
+  y0 = y_start - dy
+  
+  ax = figure.add_axes([x_start, y0, dx, dy])
   
   y = 0.0
   t = ax.text(0.0, y, title, fontweight='bold', fontsize=fontsize, va='top')
-  y += fontsize + 1
+  y += 1
 
-  ax.hlines(y, 0, n_char, color='#B0B0B0', linewidth=1.5)
-  y += 3
+  ax.hlines(y, 0, char_width, color='#B0B0B0', linewidth=1.5)
+  y += 0.5
       
   for i, row in enumerate(data):
     sz = fontsize
     
     for j, text in enumerate(row):
       if j :
-        x += col_sz[j-1]
+        x += col_widths[j-1]
       else:
         x = 0.0
       
-      k = text.count('\n') + 1
-      t = ax.text(x, y, text, color=table_color, fontsize=fontsize, va='top')
+      parts = text.split('\n')
+      k = len(parts)
+      t = ax.text(x, y, text, color=table_color, fontsize=fontsize, va='top', linespacing=linespacing)
 
       sz = max(sz, k*fontsize)
 
-    y += sz # row_sz[i]
+    y += row_heights[i]
     
-  ax.set_xlim(0.0, n_char)
-  ax.hlines(y, 0, n_char, color='#B0B0B0', linewidth=1.5)
-  ax.set_ylim(y+1, 0.0)
+  ax.set_xlim(0.0, char_width)
+  ax.hlines(char_height+0.5, 0, char_width, color='#B0B0B0', linewidth=1.5)
+  ax.set_ylim(char_height+1.0, 0.0)
   ax.set_axis_off()
+  
+  return ax, y0, dy
+  
   
 def _pie_values(data, names):
 
@@ -180,22 +187,35 @@ def _pie_values(data, names):
     return [100], ['No data']
 
 
-def _pie_label(pct):
-  return "{:.1f}%".format(pct)
+def _pie_label(x):
 
+  if x > 10.0:
+    return "{:.1f}%".format(x)
+  else:
+    return ''
 
 def _pie_chart(ax, stats, labels, colors):
   
   vals, labels = _pie_values(stats, labels)
   wedges, texts, autotexts = ax.pie(vals, autopct=lambda percent: _pie_label(percent),
+                                    wedgeprops = {'linewidth': 0.1, 'edgecolor':'#A0A0A0'},
+                                    center=(0.5, 0.5), radius=0.5, frame=True,
                                     labels=None, colors=colors, textprops=dict(color="w", fontsize=7))   
-  ax.legend(wedges, labels, loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+  ax.legend(wedges, labels, loc="center left", bbox_to_anchor=(1, 0, 0.5, 1), fontsize=8)
+  ax.set_axis_off()
 
+COLORS = ['#0090FF','#D0D000','#FF0000','#B0B0B0',
+          '#E040E0','#FF8000','#00BBBB','#8000E0',
+          '#008000','#70B070','#FFB0B0','#800000']
+
+WATERMARK = 'nuc_process_report'
 
 def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_width=8.0, dpi=300, table_color='#006464'):
   
   with open(json_stat_path) as file_obj:
     stat_dict = json.load(file_obj)
+  
+  second_genome = 'map_3' in stat_dict
     
   if screen_gfx:
     pdf = None
@@ -205,99 +225,238 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
       
     pdf = PdfPages(out_pdf_path)
   
-  # Inputs
-  
-  fig = plt.figure()
-  fig.set_size_inches(fig_width, fig_width * 1.61803398875)
+  # Clip, align, pair
    
   if len(stat_dict['command']) == 1:
-    command = stat_dict['command'][0][1]
     version = '1.1.0'
   else:
-    command = stat_dict['command'][0][1]
     version = stat_dict['command'][1][1]
-    
-  ax = fig.add_axes([0.05, 0.96, 0.9, 0.04])
-  ax.text(0.0, 0.0, 'nuc_process version %s report' % version, fontweight='bold', fontsize=13, color=table_color)
-  ax.set_axis_off()
- 
-  ax = fig.add_axes([0.05, 0.65, 0.9, 0.30])
-  _table(ax, 'Input parameters', _format_list(stat_dict['general']), table_color)
   
-  ax = fig.add_axes([0.05, 0.30, 0.9, 0.30])
-  _table(ax, 'Command used', [[command]], table_color)
-  
-  if pdf:
-    pdf.savefig(dpi=dpi)
+  if second_genome:
+    aspect = 1.6180339887
   else:
-    plt.show()  
-  
-  # Clip, align, pair
-  
-  fig = plt.figure()
-  fig.set_size_inches(fig_width, fig_width * 1.61803398875)
-  
-  ax = fig.add_axes([0.05, 0.85, 0.4, 0.10])  
-  _table(ax, 'Clipping reads 1', _format_list(stat_dict['clip_1']), table_color)
-  
-  ax = fig.add_axes([0.55, 0.87, 0.4, 0.08])  
-  hist, hist2, edges = stat_dict['re1_pos_1']
-  
-  ax.plot(edges, hist, color='#FF0000', alpha=0.5, label='Unligated')
-  ax.plot(edges, hist2, color='#0090FF', alpha=0.5, label='Ligated')
-  ax.set_xlabel('Read RE1 site position', fontsize=9)
-  ax.set_ylabel('% Reads', fontsize=9)
-  
-  ax = fig.add_axes([0.05, 0.74, 0.4, 0.1])  
-  _table(ax, 'Clipping reads 2', _format_list(stat_dict['clip_2']), table_color)
+    aspect = 1.1
 
-  ax = fig.add_axes([0.55, 0.76, 0.4, 0.08])  
+  pad = 0.025
+  mid = 0.48
+    
+  fig = plt.figure()
+  fig.set_size_inches(fig_width, fig_width * aspect)
+  
+  ax = fig.add_axes([0.05, 0.96, 0.9, 0.04])
+  ax.text(0.0, 0.0, 'nuc_process version %s report' % version, fontweight='bold',
+          fontsize=13, color=table_color)
+  ax.set_axis_off()
+  
+  y  = 0.94
+  ax, y, dy = _table(fig, y, 'Clipping reads 1', stat_dict['clip_1'], table_color)
+  
+  ax = fig.add_axes([mid+0.02, y, 0.4, 0.87*dy])  
+  hist, hist2, edges = stat_dict['re1_pos_1']
+  y_max = max(2.0, max(hist), max(hist2))
+  
+  ax.plot(edges, hist, color=COLORS[2], alpha=0.5, label='Unligated')
+  ax.plot(edges, hist2, color=COLORS[0], alpha=0.5, label='Ligated')
+  ax.set_xlabel('Read RE1 site position', fontsize=8, labelpad=2)
+  ax.set_ylabel('% Reads', fontsize=8, labelpad=2)
+  ax.tick_params(axis='both', which='both', labelsize=7, pad=2)
+  ax.legend(fontsize=7)
+  ax.set_ylim((0.0, y_max))
+  ax.set_xlim((-1, max(edges)+1))
+  
+  y -= pad
+  ax, y, dy = _table(fig, y, 'Clipping reads 2',stat_dict['clip_2'], table_color)
+
+  ax = fig.add_axes([mid+0.02, y, 0.4, 0.87*dy])  
   hist, hist2, edges = stat_dict['re1_pos_2']
+  y_max = max(2.0, max(hist), max(hist2))
   
-  ax.plot(edges, hist, color='#FF0000', alpha=0.5, label='Unligated')
-  ax.plot(edges, hist2, color='#0090FF', alpha=0.5, label='Ligated')
-  ax.set_xlabel('Read RE1 site position', fontsize=9)
-  ax.set_ylabel('% Reads', fontsize=9)
-  
+  ax.plot(edges, hist, color=COLORS[2], alpha=0.5, label='Unligated')
+  ax.plot(edges, hist2, color=COLORS[0], alpha=0.5, label='Ligated')
+  ax.set_xlabel('Read RE1 site position', fontsize=8, labelpad=2)
+  ax.set_ylabel('% Reads', fontsize=8)
+  ax.tick_params(axis='both', which='both', labelsize=7, pad=2)
+  ax.legend(fontsize=7)
+  ax.set_ylim((0.0, y_max))
+  ax.set_xlim((-1, max(edges)+1))
+
   sam_stats1 = stat_dict['map_1']
   sam_stats2 = stat_dict['map_2']
   
   sam_stats1.append(('primary_strand', stat_dict['primary_strand'][0]))
   sam_stats2.append(('primary_strand', stat_dict['primary_strand'][1]))
  
-  ax = fig.add_axes([0.05, 0.63, 0.4, 0.10]) 
-  _table(ax, 'Genome alignment reads 1', _format_list(sam_stats1), table_color)
+  y -= pad
+  ax, y, dy = _table(fig, y,  'Genome alignment reads 1', sam_stats1, table_color)
       
-  ax = fig.add_axes([0.50, 0.63, 0.15, 0.10])
-  _pie_chart(ax, sam_stats1, ['unique','ambiguous','unmapped'], ['#0090FF','#D0D000','#FF0000'])
+  ax = fig.add_axes([mid, y, dy*aspect, dy])
+  _pie_chart(ax, sam_stats1, ['unique','ambiguous','unmapped'], COLORS)
      
-  ax = fig.add_axes([0.05, 0.52, 0.4, 0.10]) 
-  _table(ax, 'Genome alignment reads 2', _format_list(sam_stats2), table_color)
+  y -= pad 
+  ax, y, dy = _table(fig, y, 'Genome alignment reads 2', sam_stats2, table_color)
   
-  ax = fig.add_axes([0.50, 0.52, 0.15, 0.10])
-  _pie_chart(ax, sam_stats2, ['unique','ambiguous','unmapped'], ['#0090FF','#D0D000','#FF0000'])
+  ax = fig.add_axes([mid, y, dy*aspect, dy])
+  _pie_chart(ax, sam_stats2, ['unique','ambiguous','unmapped'], COLORS)
   
-  if 'map_3' in stat_dict:
+  if second_genome:
     sam_stats3 = stat_dict['map_3']
     sam_stats4 = stat_dict['map_4']
     sam_stats3.append(('primary_strand', stat_dict['primary_strand'][2]))
     sam_stats4.append(('primary_strand', stat_dict['primary_strand'][3]))
-
-    ax = fig.add_axes([0.05, 0.41, 0.45, 0.10])
-    _table(ax, 'Genome alignment 2 reads 1', _format_list(sam_stats3), table_color)
+    
+    y -= pad
+    ax, y, dy = _table(fig, y, 'Genome alignment 2 reads 1', sam_stats3, table_color)
    
-    ax = fig.add_axes([0.50, 0.41, 0.15, 0.10])
-    _pie_chart(ax, sam_stats3, ['unique','ambiguous','unmapped'], ['#0090FF','#D0D000','#FF0000'])
+    ax = fig.add_axes([mid, y, dy*aspect, dy])
+    _pie_chart(ax, sam_stats3, ['unique','ambiguous','unmapped'], COLORS)
 
-    ax = fig.add_axes([0.05, 0.30, 0.45, 0.10])
-    _table(ax, 'Genome alignment 2 reads 2', _format_list(sam_stats4), table_color)
+    y -= pad
+    ax, y, dy = _table(fig, y, 'Genome alignment 2 reads 2', sam_stats4, table_color)
 
-    ax = fig.add_axes([0.50, 0.30, 0.15, 0.10])
-    _pie_chart(ax, sam_stats4, ['unique','ambiguous','unmapped'], ['#0090FF','#D0D000','#FF0000'])
+    ax = fig.add_axes([mid, y, dy*aspect, dy])
+    _pie_chart(ax, sam_stats4, ['unique','ambiguous','unmapped'], COLORS)
+  
+  if second_genome:
+    y -= pad
+    pair_stats = stat_dict['pair']
+    yax, y, dy = _table(fig, y, 'Pairing reads', pair_stats, table_color)
+ 
+    ax = fig.add_axes([mid, y, dy*aspect, dy])
+    _pie_chart(ax, pair_stats, ['unique','position_ambiguous','unmapped_end','genome_ambiguous'], COLORS)
+  else:
+    y -= pad
+    pair_stats = stat_dict['pair']
+    ax, y, dy = _table(fig, y, 'Pairing reads', pair_stats, table_color)
+ 
+    ax = fig.add_axes([mid, y, dy*aspect, dy])
+    _pie_chart(ax, pair_stats, ['unique','ambiguous','unmapped_end'], COLORS)
+  
+  ax.text(0.01, 0.01, WATERMARK, color='#B0B0B0', fontsize=8, transform=fig.transFigure)
+   
+  if pdf:
+    pdf.savefig(dpi=dpi)
+  else:
+    plt.show()  
    
   # Filter
   
 
+  redundancy_stats = stat_dict.get('dup')
+  promiscuity_stats = stat_dict.get('promsic')
+  
+  if promiscuity_stats:
+    aspect = 1.61803398875
+  else:
+    aspect = 1.25
+    
+  pad = 0.01
+  
+  fig = plt.figure()
+  fig.set_size_inches(fig_width, fig_width * aspect)
+  
+  y = 0.94
+ 
+  filter_stats = stat_dict['filter']
+  
+  for x in filter_stats:
+    if x[0] == 'excluded_ambig_group':
+      x[0] = 'excluded_group'
+      
+  ax, y, dy = _table(fig, y, 'Filtering pairs', filter_stats, table_color)
+  
+  ax = fig.add_axes([mid, y+0.1*dy , 0.75*dy*aspect, 0.75*dy])
+  
+  labels = ['accepted','internal_re1','adjacent_re1','circular_re1',
+            'overhang_re1', 'too_close','too_small','too_big',
+            'internal_re2','no_end_re2', 'unknown_contig', 'excluded_group']
+
+  _pie_chart(ax, filter_stats, labels, COLORS)
+  
+  dy = 0.2
+  y -= dy
+  y -= pad
+  y -= pad
+  
+  hist1, hist2, hist3, edges13, hist4, hist5, edges45 = [np.array(x) for x in stat_dict['frag_sizes']]
+  lim = hist1.max()/2e2
+  idx = (hist1 > lim).nonzero()[0]
+  i = idx[1]-1
+  j = idx[-1]+1
+  
+  ax = fig.add_axes([0.08, y, 0.4, dy])
+  
+  edges13 = 10.0**edges13[i:j]
+  ax.semilogx(edges13, hist1[i:j], color=COLORS[3], alpha=0.5, label='All')
+  ax.semilogx(edges13, hist2[i:j], color=COLORS[2], alpha=0.5, label='$Cis$ accepted')
+  ax.semilogx(edges13, hist3[i:j], color=COLORS[0], alpha=0.5, label='$Trans$ accepted')
+  ax.legend(fontsize=8)
+  ax.set_xlabel('Fragment size $log_{10}$(bp)', fontsize=8, labelpad=2)
+  ax.set_ylabel('% Pairs', fontsize=8, labelpad=2)
+  ax.tick_params(axis='both', which='both', labelsize=7, pad=2)
+  
+  ax = fig.add_axes([mid+0.05, y, 0.4, 0.20])
+
+  ax.plot(edges45, hist4, color='#FF0000', alpha=0.5, label='$+$ strand')
+  ax.plot(edges45, hist5, color='#0090FF', alpha=0.5, label='$-$ strand')
+  ax.legend(fontsize=8)
+  ax.set_xlabel('RE1 site separation (bp)', fontsize=8, labelpad=2)
+  ax.set_ylabel('Reads/bp', fontsize=8, labelpad=2)
+  ax.tick_params(axis='both', which='both', labelsize=7, pad=2)
+  y -= 0.04
+  
+  if redundancy_stats is not None:
+    y -= pad
+    ax, y, dy = _table(fig, y, 'Duplicate removal', redundancy_stats, table_color)
+
+    ax = fig.add_axes([mid, y, dy*aspect, dy])
+    _pie_chart(ax, redundancy_stats, ['redundant','unique'], COLORS)
+
+  
+  if promiscuity_stats is not None:
+    y -= pad
+    ax, y, dy = _table(fig, y, 'Promiscuous pair removal', promiscuity_stats, table_color)
+
+    ax = fig.add_axes([mid, y, dy*aspect, dy])
+    _pie_chart(ax, promiscuity_stats, ['clean','resolved','promiscuous'], COLORS)
+  
+  
+  y -= pad
+  final_stats = stat_dict['final']
+  ax, y, dy = _table(fig, y,  'Final output', final_stats, table_color)
+  
+  ax = fig.add_axes([mid, y, dy*aspect, dy])
+  
+  names = ['trans','cis_far','cis_near']
+  
+  if second_genome:
+    names.append('homolog_trans')
+  
+  _pie_chart(ax, final_stats, names, COLORS)
+ 
+  ax.text(0.01, 0.01, WATERMARK, color='#B0B0B0', fontsize=8, transform=fig.transFigure)
+  
+  if pdf:
+    pdf.savefig(dpi=dpi)
+  else:
+    plt.show()  
+ 
+  
+  # Inputs
+ 
+  input_stats = stat_dict['general']
+  if len(stat_dict['command']) > 1:
+    input_stats.append(stat_dict['command'][1])
+  input_stats.append(stat_dict['command'][0])
+  
+  null, char_width, char_height, col_widths, row_heights = _format_table_data(input_stats)
+  
+  fig = plt.figure()
+  fig.set_size_inches(fig_width, 1.5 * (3.0+char_height) * 9.0 * 0.0138889)
+  
+  ax, y, dy = _table(fig, 0.94, 'Input parameters', input_stats, table_color, dx=0.9)
+
+  ax.text(0.01, 0.01, WATERMARK, color='#B0B0B0', fontsize=8, transform=fig.transFigure)
+   
   if pdf:
     pdf.savefig(dpi=dpi)
     pdf.close()
