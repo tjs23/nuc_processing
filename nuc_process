@@ -3,4 +3,4 @@
 export NUC_PROCESS_DIR="$(cd $(dirname "$0"); pwd)"
 export PYTHONPATH="${PYTHONPATH}:.:${NUC_PROCESS_DIR}"
 
-python -m core.nuc_process $*
+python -m hic_core.nuc_process $*
