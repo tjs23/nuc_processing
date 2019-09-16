@@ -301,7 +301,9 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
 
   resolve_limit : Allow two suitably close promiscous ends if the pairs are long range cis or trans
   """
-
+  
+  from itertools import combinations
+  
   clean_ncc_file = tag_file_name(ncc_file, 'clean')
   clean_ncc_file_temp = clean_ncc_file + TEMP_EXT
 
@@ -318,10 +320,6 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
   write_clean = clean_file_obj.write
 
   frag_counts = defaultdict(set)
-  n_promiscuous = 0
-  n_resolved = 0
-  n_clean = 0
-
   for line in in_file_obj:
     line_data = line.split()
     chr_a = line_data[0]
@@ -330,12 +328,14 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
     f_start_b = int(line_data[9])
     strand_a = line_data[5]
     strand_b = line_data[11]
+    ambig_sz = int(float(line_data[12]))
     read_group = int(line_data[13])
     frag_counts[(chr_a, f_start_a, strand_a)].add((chr_b, f_start_b, strand_b, read_group))
     frag_counts[(chr_b, f_start_b, strand_b)].add((chr_a, f_start_a, strand_a, read_group))
 
   remove_read_group = set()
-
+  resolved_read_group = set()
+  
   if hasattr(frag_counts, 'iteritems'):
     items = frag_counts.iteritems
   else:
@@ -345,32 +345,35 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
     if len(re_ends) > num_copies:
       read_groups = {x[3] for x in re_ends}
 
-      if len(read_groups) == 1: # Multiple ends are due to mapping ambiguity only
+      if len(read_groups) <= num_copies: # Multiple ends have mo more ambiguity groups than there are genomes/haplotypes
         continue
 
-      if len(re_ends) == 2:
+      if len(re_ends) == num_copies+1:
         chr_a, f_start_a, strand_a = re_start
-        chr_b1, f_start_b1, strand_b1, read_b1 = re_ends.pop()
-        chr_b2, f_start_b2, strand_b2, read_b2 = re_ends.pop()
+        
+        for re_end1, re_end2 in combinations(re_ends, 2):
+          chr_b1, f_start_b1, strand_b1, read_b1 = re_end1
+          chr_b2, f_start_b2, strand_b2, read_b2 = re_end2
 
-        if (chr_b1 == chr_b2) and abs(f_start_b1-f_start_b2) < resolve_limit: # Other ends are very close to each other
-          if chr_a != chr_b1: # Trans to this end
-            n_resolved += 1
+          if (chr_b1 == chr_b2) and abs(f_start_b1-f_start_b2) < resolve_limit: # Other ends are very close to each other
+            if chr_a != chr_b1: # Trans to this end
+              resolved_read_group.update(read_groups) # Two groups are effectively the same at one end
 
-          elif abs(f_start_a-f_start_b1) > close_cis and abs(f_start_a-f_start_b2) > close_cis: # Far from this end
-            n_resolved += 1
+            elif abs(f_start_a-f_start_b1) > close_cis and abs(f_start_a-f_start_b2) > close_cis: # Far from this end
+              resolved_read_group.update(read_groups) # Two groups are effectively the same at one end
 
-          else: # Other end too close to this end
-            remove_read_group.add(read_b1)
-            remove_read_group.add(read_b2)
-
-        else: # Other ends too far apart
-          remove_read_group.add(read_b1)
-          remove_read_group.add(read_b2)
+            else: # Other end too close to this end
+              remove_read_group.update(read_groups)
+              
+          else: # Other ends too far apart
+            remove_read_group.update(read_groups)
 
       else: # Cannot resolve with more than two ends
-        for re_end in re_ends: # All associated ambiguity groups annuled
-          remove_read_group.add(re_end[3])
+        remove_read_group.update(read_groups) # All associated ambiguity groups annuled
+
+  n_promiscuous = 0
+  n_resolved = 0
+  n_clean = 0
 
   in_file_obj.seek(0)
   for line in in_file_obj:
@@ -381,16 +384,26 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
     f_start_b = int(line_data[9])
     strand_a = line_data[5]
     strand_b = line_data[11]
+    ambig_sz = int(float(line_data[12]))
     read_group = int(line_data[13])
 
     if read_group in remove_read_group:
-      n_promiscuous += 1
+      if ambig_sz:
+        n_promiscuous += 1
 
       if keep_files:
         write_promisc(line)
-
+    
+    elif read_group in resolved_read_group:
+      if ambig_sz:
+        n_resolved += 1
+     
+      write_clean(line)
+     
     else:
-      n_clean += 1
+      if ambig_sz:
+        n_clean += 1
+        
       write_clean(line)
 
   in_file_obj.close()
@@ -399,10 +412,9 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
     if zip_files:
       compress_file(promiscous_ncc_file)
 
-  n = n_promiscuous + n_clean
-  n_clean -= n_resolved
+  n = n_promiscuous + n_clean + n_resolved
 
-  stats = [('input_pairs', n),
+  stats = [('input_contacts', n),
            ('clean',(n_clean, n)),
            ('promiscuous',(n_promiscuous, n)),
            ('resolved',(n_resolved, n)),
@@ -662,9 +674,10 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
   mean_redundancy /= float(n) or 1.0
 
   stats = [('input_contacts', n_contacts),
-           ('defunct_ambig_group', (n_excluded, n_contacts)),
+           ('redundent_contacts', (n_excluded, n_contacts)),
+           ('effective_contacts', n),
            ('unique', (n_unique, n)),
-           ('redundant', (n_redundant, n)),
+           ('supported', (n_redundant, n)),
            ('mean_redundancy', mean_redundancy)]
 
   stat_key = 'dup_ambig' if ambig else 'dup'
@@ -2866,8 +2879,6 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   Main function for command-line operation
   """
   
-  
-  print sys.path
   from .nuc_process_report import nuc_process_report
   from nuc_tools.tools.contact_map import contact_map
   
@@ -3045,9 +3056,9 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     ambig_file = None
 
   if report_file:
-    report_file = check_file_extension(report_file, '.svg')
+    report_file = check_file_extension(report_file, '.pdf')
   else:
-    report_file = file_root + '_report.svg'
+    report_file = file_root + '_report.pdf'
 
   global LOG_FILE_PATH
   global STAT_FILE_PATH
@@ -3257,10 +3268,10 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   
   nuc_process_report(STAT_FILE_PATH, report_file)
 
-  if n_contacts > 1:
+  if final_stats[0][1] > 1: # Final contacts
     pdf_path = '{}_contact_map.pdf'.format(os.path.splitext(out_file)[0])
 
-    contact_map(out_file, pdf_path, bin_size=None, bin_size2=250.0,
+    contact_map([out_file], pdf_path, bin_size=None, bin_size2=250.0,
                 no_separate_cis=False, is_single_cell=not is_pop_data)
                 
   info('Nuc Process all done.')
@@ -3338,8 +3349,8 @@ def main(argv=None):
                               ' option will be ignored if more than two paired FASTA files are' \
                               ' input (i.e. for batch mode); automated naming will be used instead.')
 
-  arg_parse.add_argument('-rf', '--out-report-file', metavar='REPORT_FILE', dest='or',
-                         help='Optional output name for SVG format report file. This option will' \
+  arg_parse.add_argument('-pdf', '--pdf-report-file', metavar='PDF_FILE', dest='pdf',
+                         help='Optional output name for PDF format report file. This option will' \
                               ' be ignored if more than two paired FASTA files are input (i.e.' \
                               ' for batch mode); automated naming will be used instead.')
 
@@ -3442,7 +3453,7 @@ def main(argv=None):
   min_rep = args['r']
   ambig = args['a']
   out_file = args['o']
-  report_file = args['or']
+  report_file = args['pdf']
   align_exe = args['b']
   qual_scheme = args['q']
   min_qual = args['qm']
@@ -3484,7 +3495,7 @@ def main(argv=None):
     fastq_paths_1, fastq_paths_2 = pair_fastq_files(fastq_paths, pair_tags)
     fastq_pairs = list(zip(fastq_paths_1, fastq_paths_2))
 
-    if out_file or ambig_file or report_file:
+    if out_file or report_file:
       msg = 'Output naming options ignored for batch mode. Automated naming will be used for each FASTQ pair'
       warn(msg)
       out_file = None
@@ -3510,10 +3521,11 @@ def main(argv=None):
   # To think about:
   #  - could add an option to separate isolated contacts - needs Python only version
   #  - options for different RE strategies, e.g. no fill-in of sticky ends etc.
-  #  - normalise/correct population data?
   #  - split input files to parallelise the initial stages of the process
 
 
 if __name__ == '__main__':
-  sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+  main_dir = os.path.dirname(os.path.dirname(__file__))
+  sys.path.append(main_dir)
+  sys.path.append(os.path.join(main_dir, 'nuc_tools')) 
   main()

@@ -140,9 +140,10 @@ def _table(figure, y_start, title, table_data,  table_color, fontsize=9, x_start
       
   for i, row in enumerate(data):
     sz = fontsize
+    x = 0.0
     
     for j, text in enumerate(row):
-      if j :
+      if j:
         x += col_widths[j-1]
       else:
         x = 0.0
@@ -405,11 +406,18 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
   y -= 0.04
   
   if redundancy_stats is not None:
+  
+    for x in redundancy_stats:
+      if x[0] == 'redundant':
+        x[0] = 'supported'
+      if x[0] == 'defunct_ambig_group':
+        x[0] = 'redundant_contacts'
+        
     y -= pad
     ax, y, dy = _table(fig, y, 'Duplicate removal', redundancy_stats, table_color)
 
     ax = fig.add_axes([mid, y, dy*aspect, dy])
-    _pie_chart(ax, redundancy_stats, ['redundant','unique'], COLORS)
+    _pie_chart(ax, redundancy_stats, ['supported','unique'], COLORS)
 
   
   if promiscuity_stats is not None:
