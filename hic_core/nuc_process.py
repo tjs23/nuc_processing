@@ -845,7 +845,8 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
 
     # With some REs (e.g. HindIII) fragments that are apprently too big may be due to star activity
     
-    if star_dict and size_t > max_size:
+    if star_dict and size_t > max_size and len(star_dict[chr_a]) and len(star_dict[chr_b]):
+
       star_a_idx = searchsorted(star_dict[chr_a], start_a)
       star_b_idx = searchsorted(star_dict[chr_b], start_b)
       
