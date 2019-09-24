@@ -491,7 +491,7 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=100000):
   stats = [('total_contacts', n_contacts),
            ('ambig_contacts', (n_ambig, n_contacts)),
            ('total_pairs', n_pairs),
-           ('mean_ambiguity', n_ambig_pairs/float(n_ambig)),
+           ('mean_ambiguity', n_ambig_pairs/float(n_ambig or 1)),
            ('cis_near',(group_counts[0], n_contacts)),
            ('cis_far',(group_counts[1], n_contacts)),
            ('trans',(group_counts[2], n_contacts)),
