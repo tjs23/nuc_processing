@@ -2881,7 +2881,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   """
   
   from .nuc_process_report import nuc_process_report
-  from nuc_tools.tools.contact_map import contact_map
+  from tools.contact_map import contact_map
   
   genome_indices = [genome_index]
   if genome_index2:
@@ -3077,7 +3077,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     sizes = (sizes[0], int(1e16))
   else:
     size_str = '%d - %d' % tuple(sizes)
-  
+    
   log_report('command', [('Command used', ' '.join(sys.argv)),('Version', VERSION)])
 
   general_stats = [
@@ -3527,6 +3527,6 @@ def main(argv=None):
 
 if __name__ == '__main__':
   main_dir = os.path.dirname(os.path.dirname(__file__))
-  sys.path.append(main_dir)
-  sys.path.append(os.path.join(main_dir, 'nuc_tools')) 
+  sys.path.insert(0, main_dir)
+  sys.path.insert(0, os.path.join(main_dir, 'nuc_tools')) 
   main()
