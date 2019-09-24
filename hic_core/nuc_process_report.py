@@ -40,6 +40,9 @@ import os, json, sys, math
 import numpy as np
 
 from collections import defaultdict
+import matplotlib
+matplotlib.use('pdf')
+
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
