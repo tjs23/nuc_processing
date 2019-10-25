@@ -205,7 +205,8 @@ def analyse_fastq_barcodes(fastq_paths, sample_names, analysis_file_path, bc_len
   bc_counts = defaultdict(int)
   is_paired = len(fastq_paths) == 2
   level_counts = {x:0 for x in COUNT_LEVELS}
-
+  
+  
   if is_paired:
     fastq_path_1, fastq_path_2 = fastq_paths
 
@@ -241,7 +242,7 @@ def analyse_fastq_barcodes(fastq_paths, sample_names, analysis_file_path, bc_len
         n_reads += 1
 
         if barcode_1 != barcode_2 and not diff_ends:
-          continue
+          pass
 
         else:
           if diff_ends:
@@ -264,7 +265,7 @@ def analyse_fastq_barcodes(fastq_paths, sample_names, analysis_file_path, bc_len
         line_2c = readline_2() # noqa: F841
         line_2d = readline_2() # noqa: F841
 
-        if n_reads % 100000 == 0:
+        if n_reads % 10 == 0:
           levels = ' '.join(['{:,}>{:,}'.format(level_counts[l], l) for l in COUNT_LEVELS])
           n_bc = len(bc_counts)
           stdout.write("\r  Reads:{:,} BC seqs:{:,} - {}".format(n_reads, n_bc, levels))
