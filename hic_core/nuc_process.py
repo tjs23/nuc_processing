@@ -3150,6 +3150,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   # Clip read seqs at any sequenced ligation junctions  
 
   info('Clipping FASTQ reads...')
+  
   clipped_file1 = clip_reads(fastq_paths[0], intermed_file_root, lig_junc, re1Seq,
                              qual_scheme, min_qual, max_reads_in, adapt_seqs,
                              trim_5, trim_3)
