@@ -429,7 +429,7 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
   return clean_ncc_file
 
 
-def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=100000):
+def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=10000):
 
   n_pairs = 0
   n_ambig_pairs = 0
