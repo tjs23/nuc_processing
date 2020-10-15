@@ -47,7 +47,7 @@ from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 PROG_NAME = 'nuc_process_report'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 DESCRIPTION = 'Tool to present sequence processing reports from nuc_process in PDF format, given a JSON input'
 
 def _format_table_data(d, max_nchar=70):
@@ -64,6 +64,9 @@ def _format_table_data(d, max_nchar=70):
       percent = 100.0 * v/float(n or 1)
       row += ['{:,}'.format(v), '{:.2f}%'.format(percent)]
       
+    elif v is None:
+      row += ['None']
+    
     elif isinstance(v, int):
       row += ['{:,}'.format(v)]
 
@@ -240,7 +243,10 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
     aspect = 1.6180339887
   else:
     aspect = 1.1
-
+  
+  input_stats = stat_dict['general']
+  use_re = input_stats[9][1] != 'None'
+  
   pad = 0.025
   mid = 0.48
     
@@ -370,11 +376,20 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
   
   ax = fig.add_axes([mid, y+0.1*dy , 0.75*dy*aspect, 0.75*dy])
   
-  labels = ['accepted','internal_re1','adjacent_re1','circular_re1',
-            'overhang_re1', 'too_close','too_small','too_big',
-            'internal_re2','no_end_re2', 'unknown_contig', 'excluded_group']
-
-  _pie_chart(ax, filter_stats, labels, COLORS)
+  filter_keys = ('accepted','internal_re1','adjacent_re1','circular_re1',
+                 'overhang_re1', 'no_insert', 'too_close','too_small','too_big',
+                 'internal_re2','no_end_re2', 'unknown_contig', 'excluded_group') # keep original order
+  filter_dict = dict(filter_stats)
+  labels = []
+  filter_stats = []    
+ 
+  for key in filter_keys: # display order
+    if key in filter_dict and filter_dict[key][0]: # Non-zero count
+      labels.append(key)
+      filter_stats.append((key, filter_dict[key]))
+  
+  if labels:
+    _pie_chart(ax, filter_stats, labels, COLORS)
   
   dy = 0.2
   y -= dy
@@ -394,25 +409,44 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
   ax.semilogx(edges13, hist2[i:j], color=COLORS[2], alpha=0.5, label='$Cis$ accepted')
   ax.semilogx(edges13, hist3[i:j], color=COLORS[0], alpha=0.5, label='$Trans$ accepted')
   ax.legend(fontsize=8)
-  ax.set_xlabel('Fragment size $log_{10}$(bp)', fontsize=8, labelpad=2)
+  
+  if use_re:
+    title = 'Fragment size $log_{10}$(bp)'
+  else:
+    title = 'Read 3\' separation $log_{10}$(bp)'
+
+  ax.set_xlabel(title, fontsize=8, labelpad=2)
   ax.set_ylabel('% Pairs', fontsize=8, labelpad=2)
   ax.tick_params(axis='both', which='both', labelsize=7, pad=2)
   
   ax = fig.add_axes([mid+0.05, y, 0.4, 0.20])
+  
+  if use_re:
+    title = 'RE1 site separation (bp)'
+    label1 = '$+$ strand'
+    label2 = '$-$ strand'
+  else:
+    title = 'Read 3\' separation (bp)'
+    label1 = 'same strand'
+    label2 = 'opposite strand'
 
-  ax.plot(edges45, hist4, color='#FF0000', alpha=0.5, label='$+$ strand')
-  ax.plot(edges45, hist5, color='#0090FF', alpha=0.5, label='$-$ strand')
+
+  ax.plot(edges45, hist4, color='#FF0000', alpha=0.5, label=label1)
+  ax.plot(edges45, hist5, color='#0090FF', alpha=0.5, label=label2)
   ax.legend(fontsize=8)
-  ax.set_xlabel('RE1 site separation (bp)', fontsize=8, labelpad=2)
+  ax.set_xlabel(title, fontsize=8, labelpad=2)
   ax.set_ylabel('Reads/bp', fontsize=8, labelpad=2)
   ax.tick_params(axis='both', which='both', labelsize=7, pad=2)
   y -= 0.04
   
+  is_single = input_stats[-4][1] == 'Yes'
+  
   if redundancy_stats is not None:
   
     for x in redundancy_stats:
-      if x[0] == 'redundant':
-        x[0] = 'supported'
+      if not is_single and (x[0] == 'supported'):
+        x[0] = 'duplicated'
+      
       if x[0] == 'defunct_ambig_group':
         x[0] = 'redundant_contacts'
         
@@ -420,7 +454,13 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
     ax, y, dy = _table(fig, y, 'Duplicate removal', redundancy_stats, table_color)
 
     ax = fig.add_axes([mid, y, dy*aspect, dy])
-    _pie_chart(ax, redundancy_stats, ['supported','unique'], COLORS)
+    
+    if is_single:
+      labels = ['supported','unique']
+    else:
+      labels = ['duplicated','unique']  
+    
+    _pie_chart(ax, redundancy_stats, labels, COLORS)
 
   
   if promiscuity_stats is not None:
@@ -454,7 +494,6 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
   
   # Inputs
  
-  input_stats = stat_dict['general']
   if len(stat_dict['command']) > 1:
     input_stats.append(stat_dict['command'][1])
   input_stats.append(stat_dict['command'][0])
