@@ -1,7 +1,7 @@
 """
 ---- COPYRIGHT ----------------------------------------------------------------
 
-Copyright (C) 20016-2019
+Copyright (C) 20016-2020
 Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
 
 
@@ -45,7 +45,7 @@ from shutil import move
 from subprocess import Popen, PIPE, call
 
 PROG_NAME = 'nuc_process'
-VERSION = '1.2.1'
+VERSION = '1.3.0'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
 RE_SITES = {'MboI'   : '^GATC_',
@@ -502,7 +502,7 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=10000):
 
 
 def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
-                      use_re_fragments=True, ambig=False, is_hybrid=False):
+                      use_re_fragments=True, is_hybrid=False):
 
   """
   A:B B:A redundancey taken care of at this stage because the NCC file pairs are internally sorted
@@ -679,16 +679,15 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
            ('unique', (n_unique, n)),
            ('supported', (n_redundant, n)),
            ('mean_redundancy', mean_redundancy)]
-
-  stat_key = 'dup_ambig' if ambig else 'dup'
-  log_report(stat_key, stats)
+  
+  log_report('dup', stats)
 
   return out_file_name
 
 
-def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(100,2000),
-                 keep_files=True, zip_files=False, min_mappability=1, re2_tolerance=1000,
-                 ambig=False, star_dict=None):
+def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chromo_dict,
+                 sizes=(100,2000), keep_files=True, zip_files=False, min_mappability=1,
+                 re2_tolerance=1000, ambig=False, star_dict=None):
 
   filter_file = tag_file_name(pair_ncc_file, 'filter_accepted', '.ncc')
   filter_file_temp = filter_file + TEMP_EXT
@@ -710,22 +709,32 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
     frags, ends = read_re_frag_file(re2_file, i, hom_chromo_dict)
     re2_frag_dict.update(frags)
     re2_end_dict.update(ends)
-
+    
   out_file_objs = {}
   write_funcs = {}
   out_file_names = {}
   counts = {}
   min_size, max_size = sorted(sizes)
-  too_close_limit = int((min_size+max_size)/2)
   size_counts = defaultdict(int)
   size_counts_accept_cis = defaultdict(int)
   size_counts_accept_trans = defaultdict(int)
   junct_sep_counts_pos = defaultdict(int)
   junct_sep_counts_neg = defaultdict(int)
   
+  valid_chromos = set(chromo_name_dict.values())
+
+  if re1_files:
+    valid_chromos &= set(re1_end_dict.keys())
+    use_re = True
+    too_close_limit = int((min_size+max_size)/2)
+  else:
+    use_re = False
+    too_close_limit = 75 # less than half a nucleosome
+  
+  
   for tag in ('accepted', 'too_small', 'too_big', 'circular_re1', 'internal_re1',
               'internal_re2', 'no_end_re2', 'overhang_re1', 'too_close',
-              'adjacent_re1', 'unknown_contig', 'excluded_group'):
+              'adjacent_re1', 'unknown_contig', 'excluded_group', 'no_insert'):
     counts[tag] = 0
     if keep_files or (tag == 'accepted'):
       if tag == 'accepted':
@@ -766,7 +775,9 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
   in_file_obj = open_file_r(pair_ncc_file)
   excluded_reads = set()
   
-  max_idx = {chr_a:len(re1_end_dict[chr_a])-1 for chr_a in re1_end_dict}
+  if re1_files:
+    max_idx = {chr_a:len(re1_end_dict[chr_a])-1 for chr_a in re1_end_dict}
+  
   if re2_files:
     max_idx2 = {chr_a:len(re2_end_dict[chr_a])-1 for chr_a in re2_end_dict}
   
@@ -786,7 +797,8 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
 
     pos_strand_a = strand_a == '+'
     pos_strand_b = strand_b == '+'
-
+    
+    
     start_a = int(start_a)
     start_b = int(start_b)
     
@@ -795,12 +807,13 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
     
     read_id = int(read_id)
     
-    if chr_a not in re1_end_dict:
+    if chr_a not in valid_chromos:
+      print chr_a, valid_chromos
       count_write('unknown_contig', line)
       excluded_reads.add(read_id)
       continue
 
-    if chr_b not in re1_end_dict:
+    if chr_b not in valid_chromos:
       count_write('unknown_contig', line)
       excluded_reads.add(read_id)
       continue
@@ -815,94 +828,128 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
         count_write('unknown_contig', line)
         excluded_reads.add(read_id)
         continue
+    
+    is_cis = chr_a == chr_b
 
     # Find which RE fragments the _final_ (3') read positions were within ; this points to the following RE1 ligation junction
     # - the read could cover undigested RE sites
     # - index of frag with pos immediately less than end
     
     # With truncated contigs the (real) read sequence can exceed the reference
-    re1_a_idx = min(max_idx[chr_a], searchsorted(re1_end_dict[chr_a], end_a))
-    re1_b_idx = min(max_idx[chr_b], searchsorted(re1_end_dict[chr_b], end_b))
-    
-    re1_a_start, re1_a_end, mappability_a = re1_frag_dict[chr_a][re1_a_idx]
-    re1_b_start, re1_b_end, mappability_b = re1_frag_dict[chr_b][re1_b_idx]
-
-    if pos_strand_a:
-      delta_re1_a = max(0, re1_a_end - start_a) # separation from ligation junction
-      p1, p2 = start_a, end_a # sorted GENOME positions
-    else:
-      delta_re1_a = max(0, start_a - re1_a_start)
-      p1, p2 = end_a, start_a
-
-    if pos_strand_b:
-      delta_re1_b = max(0, re1_b_end - start_b)
-      p3, p4 = start_b, end_b
-    else:
-      delta_re1_b = max(0, start_b - re1_b_start)
-      p3, p4 = end_b, start_b
-
-    size_t = delta_re1_a + delta_re1_b
-
-    # With some REs (e.g. HindIII) fragments that are apprently too big may be due to star activity
-    
-    if star_dict and size_t > max_size and len(star_dict[chr_a]) and len(star_dict[chr_b]):
-
-      star_a_idx = searchsorted(star_dict[chr_a], start_a)
-      star_b_idx = searchsorted(star_dict[chr_b], start_b)
-      
-      if not pos_strand_a:
-        star_a_idx -= 1
-
-      if not pos_strand_b:
-        star_b_idx -= 1
-        
-      star_a_idx = max(0, min(max_star_idx[chr_a], star_a_idx))
-      star_b_idx = max(0, min(max_star_idx[chr_b], star_b_idx))
-      
-      star_a_pos = star_dict[chr_a][star_a_idx]
-      star_b_pos = star_dict[chr_b][star_b_idx]
-      
-      if re1_a_start < star_a_pos < re1_a_end:
-        if re1_b_start < star_b_pos < re1_b_end: # Potential star activity both sides
-          if delta_re1_a > delta_re1_b: # Trim longest side first          
-            re1_a_start, re1_a_end, delta_re1_a = adjust_cut_site(pos_strand_a, start_a, re1_a_start, re1_a_end, star_a_pos)
-            
-            if delta_re1_a + delta_re1_b > max_size:
-              re1_b_start, re1_b_end, delta_re1_b = adjust_cut_site(pos_strand_b, start_b, re1_b_start, re1_b_end, star_b_pos)
-            
-          else:
-            re1_b_start, re1_b_end, delta_re1_b = adjust_cut_site(pos_strand_b, start_b, re1_b_start, re1_b_end, star_b_pos)
+    if use_re:
+      re1_a_idx = min(max_idx[chr_a], searchsorted(re1_end_dict[chr_a], end_a))
+      re1_b_idx = min(max_idx[chr_b], searchsorted(re1_end_dict[chr_b], end_b))
  
-            if delta_re1_a + delta_re1_b > max_size:
-              re1_a_start, re1_a_end, delta_re1_a = adjust_cut_site(pos_strand_a, start_a, re1_a_start, re1_a_end, star_a_pos)
-          
-        else:
-          re1_a_start, re1_a_end, delta_re1_a = adjust_cut_site(pos_strand_a, start_a, re1_a_start, re1_a_end, star_a_pos)
-        
-      elif re1_b_start < star_b_pos < re1_b_end:
-        re1_b_start, re1_b_end, delta_re1_b = adjust_cut_site(pos_strand_b, start_b, re1_b_start, re1_b_end, star_b_pos)
-      
-      size_t = delta_re1_a + delta_re1_b
-      size_ok = min_size <= size_t <= max_size # Re-check
-          
-        
-    # Collect stats
-      
-    size_bin = int(10*np.log10(size_t or 1))
-    
-    if pos_strand_a:
-      junct_sep_counts_pos[int(delta_re1_a/10.0)] += 1
-    else:
-      junct_sep_counts_neg[int(delta_re1_a/10.0)] += 1
+      re1_a_start, re1_a_end, mappability_a = re1_frag_dict[chr_a][re1_a_idx]
+      re1_b_start, re1_b_end, mappability_b = re1_frag_dict[chr_b][re1_b_idx]
 
-    if pos_strand_b:
-      junct_sep_counts_pos[int(delta_re1_b/10.0)] += 1
-    else:
-      junct_sep_counts_neg[int(delta_re1_b/10.0)] += 1
+      if pos_strand_a:
+        delta_re1_a = max(0, re1_a_end - start_a) # separation from ligation junction
+        p1, p2 = start_a, end_a # sorted GENOME positions
+      else:
+        delta_re1_a = max(0, start_a - re1_a_start)
+        p1, p2 = end_a, start_a
+
+      if pos_strand_b:
+        delta_re1_b = max(0, re1_b_end - start_b)
+        p3, p4 = start_b, end_b
+      else:
+        delta_re1_b = max(0, start_b - re1_b_start)
+        p3, p4 = end_b, start_b
+
+      size_t = delta_re1_a + delta_re1_b
+
+      # With some REs (e.g. HindIII) fragments that are apprently too big may be due to star activity
+ 
+      if star_dict and size_t > max_size and len(star_dict[chr_a]) and len(star_dict[chr_b]):
+
+        star_a_idx = searchsorted(star_dict[chr_a], start_a)
+        star_b_idx = searchsorted(star_dict[chr_b], start_b)
+ 
+        if not pos_strand_a:
+          star_a_idx -= 1
+
+        if not pos_strand_b:
+          star_b_idx -= 1
+ 
+        star_a_idx = max(0, min(max_star_idx[chr_a], star_a_idx))
+        star_b_idx = max(0, min(max_star_idx[chr_b], star_b_idx))
+ 
+        star_a_pos = star_dict[chr_a][star_a_idx]
+        star_b_pos = star_dict[chr_b][star_b_idx]
+ 
+        if re1_a_start < star_a_pos < re1_a_end:
+          if re1_b_start < star_b_pos < re1_b_end: # Potential star activity both sides
+            if delta_re1_a > delta_re1_b: # Trim longest side first
+              re1_a_start, re1_a_end, delta_re1_a = adjust_cut_site(pos_strand_a, start_a, re1_a_start, re1_a_end, star_a_pos)
+ 
+              if delta_re1_a + delta_re1_b > max_size:
+                re1_b_start, re1_b_end, delta_re1_b = adjust_cut_site(pos_strand_b, start_b, re1_b_start, re1_b_end, star_b_pos)
+ 
+            else:
+              re1_b_start, re1_b_end, delta_re1_b = adjust_cut_site(pos_strand_b, start_b, re1_b_start, re1_b_end, star_b_pos)
+ 
+              if delta_re1_a + delta_re1_b > max_size:
+                re1_a_start, re1_a_end, delta_re1_a = adjust_cut_site(pos_strand_a, start_a, re1_a_start, re1_a_end, star_a_pos)
+ 
+          else:
+            re1_a_start, re1_a_end, delta_re1_a = adjust_cut_site(pos_strand_a, start_a, re1_a_start, re1_a_end, star_a_pos)
+ 
+        elif re1_b_start < star_b_pos < re1_b_end:
+          re1_b_start, re1_b_end, delta_re1_b = adjust_cut_site(pos_strand_b, start_b, re1_b_start, re1_b_end, star_b_pos)
+ 
+        size_t = delta_re1_a + delta_re1_b # Re-check
+
+    else: # No RE digestion, e.g. MicroC
+    
+      if pos_strand_a:
+        p1, p2 = start_a, end_a # sorted GENOME positions
+      else:
+        p1, p2 = end_a, start_a
+
+      if pos_strand_b:
+        p3, p4 = start_b, end_b
+      else:
+        p3, p4 = end_b, start_b
+      
+      size_t = min_size + (end_a - start_a) + (end_b - start_b)
+      re1_a_start, re1_a_end = start_a, end_a
+      re1_b_start, re1_b_end = start_b, end_b
+      re1_a_idx, re1_b_idx = 0, 2 # avoids same-RE checks
+      
+      if is_cis:
+        delta_re1_a =  delta_re1_b = abs(end_a-end_b)
+      else:
+        delta_re1_a = 0
+        delta_re1_b = 0
+      
+    # Collect stats
+    size_ok = min_size <= size_t <= max_size
+    
+
+    if use_re:
+      size_bin = int(10*np.log10(max(size_t, 1)))
+      
+      if pos_strand_a:
+        junct_sep_counts_pos[int(delta_re1_a/10.0)] += 1
+      else:
+        junct_sep_counts_neg[int(delta_re1_a/10.0)] += 1
+        
+      if pos_strand_b:
+        junct_sep_counts_pos[int(delta_re1_b/10.0)] += 1
+      else:
+        junct_sep_counts_neg[int(delta_re1_b/10.0)] += 1
+    
+    elif is_cis:
+      size_bin = int(10*np.log10(max(delta_re1_a, 1)))
+      
+      if strand_a == strand_b: # Same strand
+        junct_sep_counts_pos[int(delta_re1_a/10.0)] += 1
+      else:
+        junct_sep_counts_neg[int(delta_re1_a/10.0)] += 1
+      
     
     size_counts[size_bin] += 1
-
-    size_ok = min_size <= size_t <= max_size
 
     # Add RE fragment positions
     line = NCC_FORMAT % (chr_a, start_a, end_a, re1_a_start, re1_a_end, strand_a,
@@ -944,8 +991,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
         excluded_reads.add(read_id) # The real pair could definitely be a duff one
         continue
 
-    if chr_a == chr_b:
-
+    if is_cis:
       if re1_a_idx == re1_b_idx: # Same Re1 fragment
         if start_a < start_b:
           if pos_strand_b and not pos_strand_a: # Reads go outwards in same frag: <-A B->
@@ -974,23 +1020,31 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
         count_write('adjacent_re1', line) # Mostly re-ligation
         excluded_reads.add(read_id) # The real pair could definitely be useless
 
-      else: # Different re1 fragment
+      else: # Different Re1 fragment or no Re1
 
         if pos_strand_a != pos_strand_b:
 
           if pos_strand_a and (p1 < p3): # Sequencing toward each other
             delta = p4 - p1 # separation of pair
+            
+            if delta < too_close_limit: # Pair is possible even without ligation
+              if delta < 1:
+                count_write('no_insert', line) 
+              else:
+                count_write('too_close', line) 
 
-            if delta < too_close_limit:
-              count_write('too_close', line)  # Pair is possible even without ligation
               excluded_reads.add(read_id)  # The real pair could definitely be useless
               continue
 
           elif pos_strand_b and (p3 < p1): # Sequencing toward each other
             delta = p2 - p3
 
-            if delta < too_close_limit:
-              count_write('too_close', line)  # Pair is possible even without ligation
+            if delta < too_close_limit: # Pair is possible even without ligation
+              if delta < 1:
+                count_write('no_insert', line) 
+              else:
+                count_write('too_close', line) 
+                
               excluded_reads.add(read_id) # The real pair could definitely be useless
               continue
 
@@ -1052,11 +1106,18 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
 
   n = counts['input_pairs']
   stats_list = []
-  for key in ('input_pairs', 'accepted', 'near_cis_pairs', 'far_cis_pairs', 'trans_pairs',
-              'internal_re1', 'adjacent_re1', 'circular_re1', 'overhang_re1',
-              'too_close', 'too_small', 'too_big', 'excluded_group',
-              'internal_re2', 'no_end_re2', 'unknown_contig'):
-
+  
+  if use_re:
+    stat_keys = ('input_pairs', 'accepted', 'near_cis_pairs', 'far_cis_pairs', 'trans_pairs',
+                 'internal_re1', 'adjacent_re1', 'circular_re1', 'overhang_re1', 'no_insert',
+                 'too_close', 'too_small', 'too_big', 'excluded_group',
+                 'internal_re2', 'no_end_re2', 'unknown_contig')
+    
+  else:
+    stat_keys = ('input_pairs', 'accepted', 'near_cis_pairs', 'far_cis_pairs', 'trans_pairs',
+                 'no_insert', 'too_close', 'too_small', 'too_big', 'excluded_group', 'unknown_contig')
+  
+  for key in stat_keys:
     stats_list.append((key, (counts[key], n))) # So percentages can be calculated in reports
 
   del out_file_names['accepted'] # Main output never compressed at this stage
@@ -1091,12 +1152,12 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, hom_chromo_dict, sizes=(10
     b = junct_sep_counts_neg[i]
     
     if a:
-      histjunct_sep_pos.append(np.log10(a/10.0))
+      histjunct_sep_pos.append((a/10.0))  # Was log_10
     else:
       histjunct_sep_pos.append(0.0)
     
     if b:
-      histjunct_sep_neg.append(np.log10(b/10.0))
+      histjunct_sep_neg.append((b/10.0))
     else:
       histjunct_sep_neg.append(0.0)
     
@@ -1798,10 +1859,10 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   n_uniq = 0
   n_unmap = 0
   n_ambig = 0
-
+  
   proc = Popen(cmd_args, stdin=PIPE, stderr=PIPE)
   std_out, std_err = proc.communicate()
-
+  
   if std_err:
     std_err = std_err.decode('ascii')
 
@@ -1870,8 +1931,14 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
     return clipped_file
   
   in_file_obj = open_file_r(fastq_file, complete=not bool(max_reads_in))
-  n_rep = len(replaced_seq)
-  n_junc = len(junct_seq)
+  
+  if junct_seq:
+    n_rep = len(replaced_seq)
+    n_junc = len(junct_seq)
+  
+  else:
+    n_rep = 0
+    n_junc = 0
   
   re1_pos_counts = defaultdict(int)
   junct_pos_counts = defaultdict(int)
@@ -1909,23 +1976,24 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
           line2 = line2[:i]
           line4 = line4[:i]
           n_adapt += 1
-
-    if junct_seq in line2:
-      n_jclip += 1
-      i = line2.index(junct_seq)
-      junct_pos_counts[i] += 1   
-      line2 = line2[:i]
-      
-      if replaced_seq in line2:
+    
+    if junct_seq:
+      if junct_seq in line2:
+        n_jclip += 1
+        i = line2.index(junct_seq)
+        junct_pos_counts[i] += 1
+        line2 = line2[:i]
+ 
+        if replaced_seq in line2:
+          pos = line2.index(replaced_seq)
+          re1_pos_counts[pos] += 1
+ 
+        line2 = line2 + replaced_seq
+        line4 = line4[:i+n_rep]
+ 
+      elif replaced_seq in line2:
         pos = line2.index(replaced_seq)
         re1_pos_counts[pos] += 1
-      
-      line2 = line2 + replaced_seq
-      line4 = line4[:i+n_rep]
-    
-    elif replaced_seq in line2:
-      pos = line2.index(replaced_seq)
-      re1_pos_counts[pos] += 1
       
     q = 0
     while line2 and line2[-1] == 'N':
@@ -2469,7 +2537,7 @@ def is_genome_indexed(file_path, file_exts=('.1.bt2','.1.bt2l')):
 
 
 def check_index_file(file_path, sub_files=('.1', '.2', '.3', '.4', '.rev.1', '.rev.2'), critical=True):
-  
+     
   msg = ''
   is_ok = True
 
@@ -2805,7 +2873,7 @@ def read_chromo_names(chr_name_paths, genome_indices, re_name):
       if not name_dicts[i]:
         fatal('Chromosome naming file "%s" contained no usable data: requires whitespace-separated pairs' % file_path)      
     
-    else: # Use any existing RE file
+    elif re_name: # Use any existing RE file
       file_path = get_re_file_name(genome_index, re_name)
       
       if os.path.exists(file_path): # Load names from RE file
@@ -2840,6 +2908,9 @@ def read_chromo_names(chr_name_paths, genome_indices, re_name):
         msg = 'A chromosome naming file must be specified for genome index (%s) as ' \
               'this required to create its RE mapping file'
         fatal(msg % genome_index)
+    else:
+      msg = 'A chromosome naming file must be specified for genome index (%s)'
+      fatal(msg % genome_index)
   
   orig_name_dicts = [dict(x) for x in name_dicts] 
   
@@ -2893,6 +2964,9 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     is_hybrid = True
   else:
     is_hybrid = False 
+  
+  if (re1 is None) and not chr_names1:
+     fatal('A chromosome naming file must be specified (-c) when primary restriction enzyme (re1) is None')
     
   # Files can be empty if just re-indexing etc...
   if not fastq_paths and not (reindex and g_fastas):
@@ -2921,7 +2995,13 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   for gidx in genome_indices:
     if is_genome_indexed(gidx):
       check_index_file(gidx)
-
+    else:
+     dir_name, idx_name = os.path.split(gidx)
+   
+     if not os.path.exists(dir_name):
+       msg = 'Genome index location "{}" does not exist'.format(dir_name)
+       fatal(msg)
+    
   # Check aligner
   if not align_exe:
     try: # Python version >= 3.3
@@ -2968,15 +3048,18 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
       check_regular_file(fasta_path, critical=True)
 
   # Check restriction enzymes
-  if re1 not in RE_SITES:
+  if re1 and re1 not in RE_SITES:
     msg = 'Restriction enzyme "%s" not known. Available: %s.' % (re1, ', '.join(sorted(RE_SITES)))
     msg += ' %s can be edited to add further cut-site defintions.' % RE_CONF_FILE
     fatal(msg)
-
-  check_re_site(RE_SITES[re1], critical=True)
-
-  re1Seq = get_re_seq(re1)
-
+  
+  if re1:
+    check_re_site(RE_SITES[re1], critical=True)
+    re1Seq = get_re_seq(re1)
+  
+  else:
+    re1Seq = None
+  
   # TBC: re2Seq is never used
   if re2:
     re2Seq = get_re_seq(re2)
@@ -3012,14 +3095,17 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
       msg = 'Ligation junction sequence may only contain letters G, C, A, T and N'
       fatal(msg)
 
-  else:
+  elif re1:
     lig_junc = get_ligation_junction(RE_SITES[re1])
-
+  
+  else:
+    lig_junc = None
+  
   # Check adapter sequences
   if adapt_seqs:
     adapt_seqs = [x.upper() for x in adapt_seqs]
     for adapt_seq in adapt_seqs:
-      if set(lig_junc) - set('GCAT'):
+      if set(adapt_seq) - set('GCAT'):
         msg = 'Adapter sequence may only contain letters G, C, A and T'
         fatal(msg)    
     
@@ -3091,7 +3177,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     ('Genome indices', ', '.join(genome_indices)),
     ('FASTQ quality scheme', qual_scheme),
     ('Minimum FASTQ quaility', min_qual),
-    ('RE1 site', re1),
+    ('RE1 site', (re1 or 'None')),
     ('RE2 site', (re2 or 'None')),
     ('Ligation junction', lig_junc),
     ('Adapter sequences', ','.join(adapt_seqs or ['None'])),
@@ -3130,18 +3216,22 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     star_dict = get_genome_star_sites(re1, g_fastas, g_fastas2, base_chromo_name_dict, hom_chromo_dict)
     
   # Create RE fragments file if not present
-
-  re1_files = [check_re_frag_file(genome_index, re1, g_fastas, base_chromo_name_dict,
-                                  align_exe, num_cpu, remap=remap)]
+  
+  re1_files = []
   re2_files = []
+  
+  if re1:
+    re1_files = [check_re_frag_file(genome_index, re1, g_fastas, base_chromo_name_dict,
+                                    align_exe, num_cpu, remap=remap)]
 
   if re2:
     re2_files.append(check_re_frag_file(genome_index, re2, g_fastas, base_chromo_name_dict,
                                         align_exe, num_cpu, remap=remap))
   
   if is_hybrid:
-    re1_files.append(check_re_frag_file(genome_index2, re1, g_fastas2, base_chromo_name_dict,
-                                        align_exe, num_cpu, remap=remap))
+    if re1:
+      re1_files.append(check_re_frag_file(genome_index2, re1, g_fastas2, base_chromo_name_dict,
+                                          align_exe, num_cpu, remap=remap))
 
     if re2:
       re2_files.append(check_re_frag_file(genome_index2, re2, g_fastas2, base_chromo_name_dict,
@@ -3189,8 +3279,8 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   # Filtering
   info('Filtering mapped sequences...')
    
-  filter_output = filter_pairs(paired_ncc_file, re1_files, re2_files, hom_chromo_dict,
-                               sizes, keep_files, zip_files, star_dict=star_dict)
+  filter_output = filter_pairs(paired_ncc_file, re1_files, re2_files, chromo_name_dict,
+                               hom_chromo_dict, sizes, keep_files, zip_files, star_dict=star_dict)
   
   filter_ncc_file, fail_file_names = filter_output
 
@@ -3211,7 +3301,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
       
     else:  
       # De-duplication of polulation data only if exact read bp matches and no fragment redundency requirement 
-      info('Removing duplicate contacts...')
+      info('Removing duplicate contacts... ')
       nr_ncc_file = remove_redundancy(filter_ncc_file, keep_files, zip_files, use_re_fragments=False)
 
     if sam_format and nr_ncc_file:
@@ -3234,9 +3324,13 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
        
   else:
     # Merge duplicates
-    info('Removing duplicate contacts...')
-    nr_ncc_file = remove_redundancy(filter_ncc_file, keep_files, zip_files, min_rep, is_hybrid=is_hybrid)
-
+    info('Removing duplicate contacts... ')
+    
+    if re1:
+      nr_ncc_file = remove_redundancy(filter_ncc_file, keep_files, zip_files, min_rep, is_hybrid=is_hybrid)
+    else: # Whene no RE, e.g. with MicroC, redundancy removal is only for exact duplicates, c.f. population data
+      nr_ncc_file = remove_redundancy(filter_ncc_file, keep_files, zip_files, use_re_fragments=False, is_hybrid=is_hybrid)
+    
     if sam_format:
       write_sam_file(nr_ncc_file, sam_file1, sam_file2)
 
@@ -3298,7 +3392,7 @@ def main(argv=None):
   epilog = 'Note %s can be edited to add further restriction enzyme cut-site defintions. ' % RE_CONF_FILE
   epilog += 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
 
-  res = sorted(RE_SITES)
+  res = sorted(RE_SITES) + ['None']
   avail_re = 'Available: ' + ', '.join(res)
   avail_quals = 'Available: ' + ', '.join(QUAL_SCHEMES)
 
@@ -3325,8 +3419,9 @@ def main(argv=None):
                          help='Location of a file containing chromosome names for the genome build:' \
                               ' tab-separated lines mapping sequence/contig names (as appear at the' \
                               ' start of genome FASTA headers) to desired (human readable) chromosome' \
-                              ' names. This file is only mandatory if an RE1 mapping file has not already' \
-                              ' been created for the genome. The file may be built automatically from NCBI' \
+                              ' names. This file is not mandatory if the primary restriction enzyme (-re1)' \
+                              ' is specified (i.e. not "None") and a corresponding RE1 mapping file has already' \
+                              ' been created for the genome. The naming file may be built automatically from NCBI' \
                               ' genome FASTA files using the supplied "nuc_sequence_names" program')  
 
   arg_parse.add_argument('-cn2', '--chromo-names-2', default=None, metavar='CHROM_NAME_FILE_2', dest='cn2',
@@ -3338,7 +3433,9 @@ def main(argv=None):
                               ' the supplied "nuc_sequence_names" program')  
   
   arg_parse.add_argument('-re1', default='MboI', choices=res, metavar='ENZYME',
-                         help='Primary restriction enzyme (for ligation junctions). Default: MboI.' + avail_re)
+                         help='Primary restriction enzyme (for ligation junctions). ' \
+                              'May be set to "None" for MicroC etc., where digestion is not sequence specific. ' \
+                              'Default: MboI.' + avail_re)
 
   arg_parse.add_argument('-re2', choices=res, metavar='ENZYME',
                          help='Secondary restriction enzyme (if used). ' + avail_re)
@@ -3493,7 +3590,10 @@ def main(argv=None):
       num_copies = 2
     else:
       num_copies = 1
-
+  
+  if re1.lower() == 'none':
+    re1 = None
+  
   if sizes:
     sizes = sorted([int(x) for x in re.split('\D+', sizes)])
 
