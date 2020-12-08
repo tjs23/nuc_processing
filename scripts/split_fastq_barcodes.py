@@ -121,15 +121,20 @@ def read_barcode_file(bc_file_path):
 
       if vals[0][0] == '#':
         continue
-
-      bc_key = vals[0]
-
+      
+      if len(vals) == 3:
+        if set(vals[1]) == set('GCAT'):
+          bc_key = '-'.join(vals[:2])
+      
+      else:
+        bc_key = vals[0]
+      
       if bc_key in sample_names:
         msg = 'Barcode "%s" repeated' % bc_key
         critical(msg)
 
       if len(vals) > 1:
-        sample_names[bc_key] = vals[1]
+        sample_names[bc_key] = vals[-1]
 
       else:
         sample += 1
@@ -847,7 +852,7 @@ if __name__ == '__main__':
                          help='One or two input FASTQ files to process. If two files are input they are assumed to be paired reads with matching rows. Accepts wildcards that match two files')
 
   arg_parse.add_argument('-b', metavar='BARCODE_FILE', default=None,
-                         help='Optional TSV file specifying expected/valid barcodes. Contains single barcodes or pairs joined with "-", one per row with optional sample names. An existing analysis output file (see -a option) may be used. If not specified only barcode analysis will be performed; split FASTQ files will not be created.')
+                         help='Optional TSV file specifying expected/valid barcodes. Contains single barcodes in the first column or barcode pairs; joined with "-" or in the first two columns. Optional sample names go  in the last column. An existing analysis output file (see -a option) may be used. If not specified only barcode analysis will be performed; split FASTQ files will not be created.')
 
   arg_parse.add_argument('-a', metavar='ANALYSIS_FILE', default=None,
                          help='Optional TSV file name for output of barcode analysis. Defaults to using a name derived from the input FASTQ files tagged with "%s"' % ANALYSIS_TAG)
