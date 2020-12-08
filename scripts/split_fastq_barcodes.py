@@ -123,9 +123,11 @@ def read_barcode_file(bc_file_path):
         continue
       
       if len(vals) == 3:
-        if set(vals[1]) == set('GCAT'):
+        if set(vals[1]).issubset(set('GCAT')):
           bc_key = '-'.join(vals[:2])
-      
+        else:
+          bc_key = vals[0]
+        
       else:
         bc_key = vals[0]
       
