@@ -115,21 +115,33 @@ if os.path.exists(RE_CONF_FILE):
     RE_SITES[name] = site
 
 
-def open_file_r(file_path, complete=True):
+def open_file_r(file_path, complete=True, gzip_exts=('.gz','.gzip'), buffer_size=READ_BUFFER):
 
-  if file_path.endswith('.gz'):
+  import io, subprocess
+  
+  if os.path.splitext(file_path)[1].lower() in gzip_exts:
+
     if complete:
       try:
-        file_obj = Popen(['zcat', file_path], stdout=PIPE).stdout
-      except OSError: 
-        file_obj = BufferedReader(gzip.open(file_path, 'rt'), READ_BUFFER)
-    else:
-      file_obj = BufferedReader(gzip.open(file_path, 'rt'), READ_BUFFER)
+        file_obj = subprocess.Popen(['zcat', file_path], stdout=subprocess.PIPE).stdout
+      except OSError:
+        file_obj = BufferedReader(gzip.open(file_path, 'rb'), buffer_size)
     
+    else:
+      file_obj = BufferedReader(gzip.open(file_path, 'rb'), buffer_size)
+    
+    if sys.version_info.major > 2:
+      file_obj = io.TextIOWrapper(file_obj, encoding="utf-8")
+ 
   else:
-    file_obj = open(file_path, 'rU', READ_BUFFER)
-
+    if sys.version_info.major > 2:
+      file_obj = open(file_path, 'rU', buffer_size, encoding='utf-8')
+      
+    else:
+      file_obj = open(file_path, 'rU', buffer_size)
+  
   return file_obj
+ 
 
 
 def compress_file(file_path):
@@ -674,7 +686,7 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
   mean_redundancy /= float(n) or 1.0
 
   stats = [('input_contacts', n_contacts),
-           ('redundent_contacts', (n_excluded, n_contacts)),
+           ('redundant_contacts', (n_excluded, n_contacts)),
            ('effective_contacts', n),
            ('unique', (n_unique, n)),
            ('supported', (n_redundant, n)),
@@ -808,7 +820,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
     read_id = int(read_id)
     
     if chr_a not in valid_chromos:
-      print chr_a, valid_chromos
+      print(chr_a, valid_chromos)
       count_write('unknown_contig', line)
       excluded_reads.add(read_id)
       continue

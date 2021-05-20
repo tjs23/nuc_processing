@@ -50,7 +50,7 @@ try:
 except ImportError:
   from urllib.error import HTTPError
 
-from NucProcess import info, warn, fatal, check_regular_file
+from .nuc_process import info, warn, fatal, check_regular_file
 
 try:
   from Bio import Entrez
@@ -139,7 +139,7 @@ def get_chromosome_names(seq_ids, email):
 
 def write_chromosome_name_file(out_path, email, fasta_paths, min_kb_size=DEFAULT_MIN_SIZE):
   
-  from NucProcess import open_file_r
+  from .nuc_process import open_file_r
   min_seq_len = min_kb_size * 1000
   seq_ids = {}
   count = 0
