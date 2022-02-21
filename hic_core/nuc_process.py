@@ -1,7 +1,7 @@
 """
 ---- COPYRIGHT ----------------------------------------------------------------
 
-Copyright (C) 20016-2020
+Copyright (C) 20016-2022
 Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
 
 
@@ -43,9 +43,10 @@ from io import BufferedReader
 from collections import defaultdict
 from shutil import move
 from subprocess import Popen, PIPE, call
+from math import floor
 
 PROG_NAME = 'nuc_process'
-VERSION = '1.3.0'
+VERSION = '1.3.1'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
 RE_SITES = {'MboI'   : '^GATC_',
@@ -786,6 +787,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
     
   in_file_obj = open_file_r(pair_ncc_file)
   excluded_reads = set()
+  pruned_groups = set()
   
   if re1_files:
     max_idx = {chr_a:len(re1_end_dict[chr_a])-1 for chr_a in re1_end_dict}
@@ -810,7 +812,6 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
     pos_strand_a = strand_a == '+'
     pos_strand_b = strand_b == '+'
     
-    
     start_a = int(start_a)
     start_b = int(start_b)
     
@@ -820,7 +821,6 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
     read_id = int(read_id)
     
     if chr_a not in valid_chromos:
-      print(chr_a, valid_chromos)
       count_write('unknown_contig', line)
       excluded_reads.add(read_id)
       continue
@@ -962,7 +962,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
       
     
     size_counts[size_bin] += 1
-
+    
     # Add RE fragment positions
     line = NCC_FORMAT % (chr_a, start_a, end_a, re1_a_start, re1_a_end, strand_a,
                          chr_b, start_b, end_b, re1_b_start, re1_b_end, strand_b,
@@ -996,11 +996,13 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
       if abs(delta_re2_a) > re2_tolerance:
         count_write('no_end_re2', line)
         excluded_reads.add(read_id) # The real pair could definitely be a duff one
+        #pruned_groups.add(read_id)
         continue
 
       if abs(delta_re2_b) > re2_tolerance:
         count_write('no_end_re2', line)
         excluded_reads.add(read_id) # The real pair could definitely be a duff one
+        #pruned_groups.add(read_id)
         continue
 
     if is_cis:
@@ -1089,6 +1091,8 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
 
       else:
         count_write('too_big', line)
+        
+        #if size_t < 2 * max_size: # Not impossible
         excluded_reads.add(read_id)
 
   # Remove complete excluded ambiguity groups at the end:
@@ -1097,6 +1101,15 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
   in_file_obj.close()
   out_file_objs['accepted'].close()  
   del out_file_objs['accepted']
+  prune_counts = defaultdict(int)
+  
+  if pruned_groups: # Degree of ambiguity changed
+    with open_file_r(out_file_names['accepted']) as file_obj:
+      for line in file_obj:
+        read_id = int(line.split()[13])
+        
+        if read_id in pruned_groups:
+          prune_counts[read_id] += 1
   
   out_file_obj = open(filter_file, 'w')
   with open_file_r(out_file_names['accepted']) as file_obj:
@@ -1109,6 +1122,13 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
         count_write('excluded_group', line)
 
       else:
+        if read_id in prune_counts:
+          count = prune_counts[read_id]
+          row = line.split()
+          row[12] = '%.1f' % (count + 0.1)
+          line = ' '.join(row) + '\n'
+          prune_counts[read_id] = 0.0
+        
         write(line)
 
   counts['accepted'] -= counts['excluded_group']
@@ -1399,10 +1419,11 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
   n_unambig = 0
   n_unmapped = 0
   n_hybrid_ambig = 0
-  n_hybrid_unpairable = 0
+  n_hybrid_poor = 0
   n_hybrid_end_missing = 0
   n_primary_strand = [0,0,0,0]
   n_strand = [0,0,0,0]
+  zero_ord = QUAL_ZERO_ORDS['phred33']
   
   # Go through same files and pair based on matching id
   # Write out any multi-position mapings
@@ -1450,23 +1471,35 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
             revcomp = int(data[1]) & 0x10
             start = int(data[3])
             seq = data[9]
+            qual = data[10]
             nbp = len(seq)
             end = start + nbp
+            
+            score, var = SCORE_TAG_SEARCH(line).groups()
+            var_orig = var             
+            score = int(score) # when --local : -nbp*2
+
+            if revcomp and var[-1] == '0' and var[-2] in 'GCAT': # Ignore substitutions at the end e.g "C0"; add back subtracted score
+              var = var[:-2]
+            
+              if seq[-1] != 'N': # No penalty for N's
+                q = min(ord(qual[-1]) - zero_ord, 40.0)
+                mp1 = 2 + floor(4*q/40.0)  # MX = 6, MN = 2.
+                score = min(score+mp1, max_score)
+                end -= 1
+
+            elif var[0] == '0' and var[1] in 'GCAT':
+              var = var[2:]
+              
+              if seq[0] != 'N':
+                q = min(ord(qual[0]) - zero_ord, 40.0)
+                mp2 = 2 + floor(4*q/40.0)  
+                score = min(score+mp2, max_score)
+                start += 1
            
             if revcomp:
               start, end = end, start  # The sequencing read started from the other end
             
-            score, var = SCORE_TAG_SEARCH(line).groups()             
-            score = int(score) # when --local : -nbp*2
-           
-            while var and var[-1] == '0':
-              score = min(score+5, max_score)
-              var = var[:-2]
-              
-            while var and var[0] == '0':
-              score = min(score+5, max_score)
-              var = var[2:]
-                        
             ncc = (chr_name, start, end, 0, 0, '-' if revcomp else '+') # Strand info kept because ends can be diffferent for replicate reads, no Re fragment positions, yet
             contacts[i].append((ncc, score))
             scores[i].append(score)
@@ -1483,11 +1516,18 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
           j += 1
           
       if not unique_map: # Resolve some perfect vs non-perfect positional ambiguity
+        for a in (0,1,2,3):
+          if len(scores[a]) > 1:
+            score_lim = max(scores[a]) - 9 # Allow one mismatch or two consec
+            idx = [i for i, score in enumerate(scores[a]) if score > score_lim]
+            contacts[a] = [contacts[a][i] for i in idx]
+            scores[a] = [scores[a][i] for i in idx]
+            
         for a, b in ((0,1), (2,3)):
           if (len(scores[a]) > 1) or (len(scores[b]) > 1):
-             
             n_best_a = scores[a].count(max_score) # Zero is best/perfect score in end-to-end mode, 2 * seq len in local
             n_best_b = scores[b].count(max_score)
+            
             if n_best_a * n_best_b == 1: # Only one perfect pair
               i = scores[a].index(max_score)
               j = scores[b].index(max_score)
@@ -1501,7 +1541,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
                   chr_name1, start1 = contacts[end][0][0][:2]
                   chr_name2, start2 = contacts[end][1][0][:2]
  
-                  if (chr_name1 == chr_name2) and (abs(start2-start1) < CLOSE_AMBIG):
+                  if (chr_name1 == chr_name2) and (abs(start2-start1) < CLOSE_AMBIG): # For position ambiguous v. close in cis almost certainly correct
                     i = scores[end].index(max(scores[end]))
                     contacts[end] = [contacts[end][i]]
               
@@ -1512,7 +1552,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
       n1 = len(contacts[1])
       n2 = len(contacts[2])
       n3 = len(contacts[3])
-
+      
       if (n0+n2) * (n1+n3) == 0: # One end or both ends have no mappings
         n_unmapped += 1
         continue
@@ -1520,62 +1560,50 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
       elif min(n0, n1, n2, n3) == 0: # Not all ends accounted for 
         n_hybrid_end_missing += 1
         continue      
-      
-      elif max(n0, n1, n2, n3) > 1:
-        n_ambig += 1
-        
-        if ambig:
-          ambig_code = float(n0 * n1 + n2 * n3 + n0 * n3 + n2 * n1)
-          for end_a, end_b in ((0,1), (2,3), (0,3), (2,1)): # A:A, B:B, A:B, B:A genome pairings
-            for ncc_a, score_a in contacts[end_a]:
-              for ncc_b, score_b in contacts[end_b]:
-                _write_ncc_line(ncc_a, ncc_b, ambig_code, iid, write_pair) # Send to AMBIG file
-                ambig_code = 0.0
-                
-        continue      
 
       pairs = []
-      best_score = -INF
-      
       for end_a, end_b in ((0,1), (2,3), (0,3), (2,1)): # A:A, B:B, A:B, B:A genome pairings
         for i, (ncc_a, score_a) in enumerate(contacts[end_a]):
           for j, (ncc_b, score_b) in enumerate(contacts[end_b]):
-            score = score_a + score_b
-            pairs.append((score, i, j, ncc_a, ncc_b))
-            best_score = max(score, best_score) 
-
-      selection = []
-      for score, i, j, ncc_a, ncc_b in pairs:
-        if score == best_score:
-          selection.append((ncc_a, ncc_b))
-     
-      if len(selection) > 1: # Multiple perfect
-        n_hybrid_ambig += 1
-        ambig_code = float(len(selection))
-        for ncc_a, ncc_b in selection:
-          _write_ncc_line(ncc_a, ncc_b, ambig_code, iid, write_pair)
-          ambig_code = 0.0
-        continue
-        
-      elif selection and best_score == 2 * max_score: # Single perfect 
-        n_unambig += 1
-        ncc_a, ncc_b = selection[0]
-        _write_ncc_line(ncc_a, ncc_b, 1.0, iid, write_pair)
-        continue
+            pairs.append((score_a + score_b, i, j, ncc_a, ncc_b))            
       
-      # No further homolog resolution attempted
-      # - No pair has an exact match
-      if len(pairs) > 1:
-        n_hybrid_ambig += 1
-        ambig_code = float(len(pairs))
+      pairs.sort(reverse=True)
+      best_score = pairs[0][0]
+      score_tol = 5
+      
+      for score, i, j, ncc_a, ncc_b in pairs:
+        chr1, gen1 = ncc_a[0].split('.')
+        chr2, gen2 = ncc_b[0].split('.')
+            
+        if score == best_score and (best_score >= 2 * (max_score - 12)):
+          if chr1 == chr2 and (gen1 != gen2):
+            score_tol = 15 # Stricter for homologous chromosomes
+      
+      if best_score < 2 * (max_score - 12): # Nothing any good
+        n_hybrid_poor += 1
+        continue
+
+      else:
+        pairs = [x for x in pairs if x[0] >= best_score-score_tol]
+                
+      ambig_code = float(len(pairs))
+      is_pos_ambig = False
+      
+      for score, i, j, ncc_a, ncc_b in pairs:
+        _write_ncc_line(ncc_a, ncc_b, ambig_code, iid, write_pair)
+        ambig_code = 0.0
+        if i > 0 or j > 0:
+          is_pos_ambig = True
         
-        for score, i, j, ncc_a, ncc_b in pairs:
-          _write_ncc_line(ncc_a, ncc_b, ambig_code, iid, write_pair)
-          ambig_code = 0.0
-       
-      elif pairs:
-        # - Single imperfect are not used
-        n_hybrid_unpairable += 1
+      if is_pos_ambig:
+        n_ambig += 1
+          
+      elif len(pairs) > 1: # Ambiguity only due to hybrid genome
+        n_hybrid_ambig += 1
+      
+      else:
+        n_unambig += 1
+
          
   n_primary_strand = [int(x) for x in n_primary_strand]
   n_strand = [int(x) for x in n_strand]
@@ -1586,7 +1614,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
            ('end_1B_alignments', n_map[2]),
            ('end_2B_alignments', n_map[3]),
            ('unpaired_ends', (n_unpaired, n_pairs)),
-           ('hybrid_no_homolog', (n_hybrid_unpairable, n_pairs)),
+           ('hybrid_all_poor', (n_hybrid_poor, n_pairs)),
            ('hybrid_end_missing', (n_hybrid_end_missing, n_pairs)),
            ('unmapped_end', (n_unmapped, n_pairs)),
            ('unique', (n_unambig, n_pairs)),
@@ -1683,19 +1711,32 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         seq_a = data_a[9]
         nbp = len(seq_a)
         end_a = start_a + nbp
-
-        if revcomp_a:
-          start_a, end_a = end_a, start_a  # The sequencing read started from the other end
        
         name_a = chromo_names.get(chr_a, chr_a)
         score_a, var = SCORE_TAG_SEARCH(line1).groups()             
         score_a = int(score_a) # when --local : -nbp*2
 
-        if revcomp_a  and (var[-1] == '0'):# Ignore substitutions at end
-          score_a = min(score_a+5, max_score)
+
+        if revcomp_a and var[-1] == '0' and var[-2] in 'GCAT': # Ignore substitutions at the end e.g "C0"; add back subtracted score
+          var = var[:-2]
+        
+          if seq[-1] != 'N': # No penalty for N's
+            q = min(ord(qual[-1]) - zero_ord, 40.0)
+            mp1 = 2 + floor(4*q/40.0)  # MX = 6, MN = 2.
+            score = min(score+mp1, max_score)
+            end -= 1
+
+        elif var[0] == '0' and var[1] in 'GCAT':
+          var = var[2:]
           
-        elif var[0] == '0': # Ignore substitutions at start
-          score_a = min(score_a+5, max_score)
+          if seq[0] != 'N':
+            q = min(ord(qual[0]) - zero_ord, 40.0)
+            mp2 = 2 + floor(4*q/40.0)  
+            score = min(score+mp2, max_score)
+            start += 1
+
+        if revcomp_a:
+          start_a, end_a = end_a, start_a  # The sequencing read started from the other end
 
         ncc_a = (name_a, start_a, end_a, 0, 0, '-' if revcomp_a else '+') # Strand info kept because ends can be different for replicate reads, no Re fragment positions, yet
         contact_a.append((ncc_a, score_a))
@@ -1842,11 +1883,16 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   if INTERRUPTED and os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
     return sam_file_path
 
+  if os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
+    return sam_file_path
+
   patt_1 = re.compile('(\d+) reads; of these:')
   patt_2 = re.compile('(\d+) \(.+\) aligned exactly 1 time')
   patt_3 = re.compile('(\d+) \(.+\) aligned 0 times')
   patt_4 = re.compile('(\d+) \(.+\) aligned >1 times')
-
+  
+  ##### Micro-C keep unmapped reads ends for another go...
+  
   cmd_args = [align_exe,
               '-D', '20', '-R', '3', '-N', '0',  '-L', '20',  '-i', 'S,1,0.5', # similar to very-sensitive
               '-x', genome_index,
@@ -1939,6 +1985,9 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   if INTERRUPTED and os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
     return clipped_file
 
+  if INTERRUPTED and os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
+    return clipped_file
+
   if INTERRUPTED and os.path.exists(clipped_file) and not os.path.exists(clipped_file_temp):
     return clipped_file
   
@@ -1972,23 +2021,39 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   
   end = -1 - trim_3
   
+  adapt_list = [(adapt_seq, adapt_seq[:MIN_ADAPT_OVERLAP], len(adapt_seq)) for adapt_seq in adapt_seqs]
+  
   while line1:
     n_reads += 1
     line2 = readline()[trim_5:end]
     line3 = readline()
     line4 = readline()[trim_5:end]
     
-    for adapt_seq in adapt_seqs:
-      min_adapt = adapt_seq[:MIN_ADAPT_OVERLAP]
+    for adapt_seq, min_adapt, alen in adapt_list:
     
       if min_adapt in line2:
         i = line2.index(min_adapt)
+        adapt_end = line2[i:i+alen]
         
-        if line2[i:i+len(adapt_seq)] in adapt_seq:
+        if adapt_end in adapt_seq:
           line2 = line2[:i]
           line4 = line4[:i]
           n_adapt += 1
-    
+        
+        else:
+          n_mismatch = 0
+          for j, bp in enumerate(adapt_end):
+            if bp == 'N':
+              continue
+            
+            elif bp != adapt_seq[j]:
+              n_mismatch += 1
+          
+          if n_mismatch < 2:
+            line2 = line2[:i]
+            line4 = line4[:i]
+            n_adapt += 1
+          
     if junct_seq:
       if junct_seq in line2:
         n_jclip += 1
@@ -2625,19 +2690,19 @@ def _write_log_lines(lines, verbose=VERBOSE):
 
 def info(msg, prefix='INFO'):
 
-  line = '%8s : %s' % (prefix, msg)
+  line = '%s: %s' % (prefix, msg)
   _write_log_lines([line])
 
 
 def warn(msg, prefix='WARNING'):
 
-  line = '%8s : %s' % (prefix, msg)
+  line = '%s: %s' % (prefix, msg)
   _write_log_lines([line])
 
 
 def fatal(msg, prefix='%s FAILURE' % PROG_NAME):
 
-  lines = ['%8s : %s' % (prefix, msg),
+  lines = ['%s: %s' % (prefix, msg),
            'Use %s with -h to display command line options' % PROG_NAME]
 
   _write_log_lines(lines, verbose=True)
@@ -2963,7 +3028,8 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   Main function for command-line operation
   """
   
-  from .nuc_process_report import nuc_process_report
+  from hic_core.nuc_process_report import nuc_process_report
+  from hic_core.sc_hic_disambiguate import sc_hic_disambiguate
   from tools.contact_map import contact_map
   from tools.ncc_bin import bin_ncc
   
@@ -3366,11 +3432,18 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   if not keep_files:
     os.unlink(sam_file1)
     os.unlink(sam_file2)
-  
+    os.unlink(paired_ncc_file)
+    
     if is_hybrid:
       os.unlink(sam_file3)
       os.unlink(sam_file4)
-  
+    
+    try:
+      os.rmdir(intermed_dir)
+    
+    except OSError as err:     
+      warn('Could not remove processing directory {}. Python error: {}'.format(intermed_dir, err))
+      
   final_stats = get_ncc_stats(out_file, hom_chromo_dict)
   
   log_report('final', final_stats)
@@ -3389,6 +3462,10 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     else:
       contact_map([out_file], pdf_path, bin_size=None, bin_size2=250.0,
                   no_separate_cis=False, is_single_cell=True)
+  
+  if is_hybrid and not is_pop_data:
+    sc_hic_disambiguate([out_file])
+  
                 
   info('Nuc Process all done.')
 
@@ -3534,7 +3611,7 @@ def main(argv=None):
                               ' single perfect match is found.')
 
   arg_parse.add_argument('-cc', '--chromo-copies', default=0, metavar='GENOME_COPIES', dest='cc',
-                         type=int, help='Number of whole-genome copies, e.g. for S2 phase;' \
+                         type=int, help='Number of whole-genome copies, e.g. for G2 phase;' \
                               ' Default 1 unless as second genome index is specified' \
                               ' for hybrid samples.')
 
@@ -3599,9 +3676,9 @@ def main(argv=None):
   
   if not num_copies:
     if genome_index2:
-      num_copies = 2
+      num_copies = 4
     else:
-      num_copies = 1
+      num_copies = 2
   
   if re1.lower() == 'none':
     re1 = None
@@ -3641,7 +3718,6 @@ def main(argv=None):
   #    + Main PDF/HTML, brief tutorial example
   #
   # To think about:
-  #  - could add an option to separate isolated contacts - needs Python only version
   #  - options for different RE strategies, e.g. no fill-in of sticky ends etc.
   #  - split input files to parallelise the initial stages of the process
 

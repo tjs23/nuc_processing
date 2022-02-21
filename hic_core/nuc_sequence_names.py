@@ -1,7 +1,7 @@
 """
 ---- COPYRIGHT ----------------------------------------------------------------
 
-Copyright (C) 20016-2017
+Copyright (C) 20016-2022
 Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
 
 
@@ -37,7 +37,7 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 """
 
 PROG_NAME = 'nuc_sequence_names'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 DESCRIPTION = 'Fetch human readable chromosome/sequence names from NCBI genome build names'
 DEFAULT_MIN_SIZE = 100
 

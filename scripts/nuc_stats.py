@@ -38,11 +38,16 @@ Hi-C. Nature. 2017 Apr 6;544(7648):59-64. doi: 10.1038/nature21429. Epub 2017 Ma
 
 import os, sys, json
 
-from .NucProcess import warn, fatal
-from .NucContactMap import load_ncc, _get_num_isolated, _get_trans_dev, _get_mito_fraction
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+sys.path.append('/home/tjs23/gh/nuc_processing/nuc_tools/')
+sys.path.append('/home/tjs23/gh/nuc_processing/nuc_tools/core/')
+
+from hic_core.nuc_process import warn, fatal
+from nuc_tools.tools.contact_map import  _get_num_isolated, _get_trans_dev, _get_mito_fraction
+from nuc_tools.formats.ncc import load_file as load_ncc
 
 PROG_NAME = 'nuc_stats'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 DESCRIPTION = 'Script to aggregate statistics for different single-cell Hi-C datasets from .json and .ncc files'
 
 
@@ -105,7 +110,7 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       promiscuity_stats = dict(stat_dict['promsic'])
       final_stats = dict(stat_dict['final'])
       frag_sizes = stat_dict['frag_sizes']
-
+      
       clip_len_1 = clip_stats1['mean_length']
       clip_len_2 = clip_stats2['mean_length']
 
@@ -129,13 +134,14 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       for key in ('circular_re1', 'overhang_re1',
                   'too_close', 'too_small', 'too_big',
                   'internal_re2', 'no_end_re2',
-                  'low_mappability', 'unknown_contig'):
+                  'unknown_contig'):
 
         n_other += filter_stats[key][0]
 
       n_unmapped_end, n_pairs = pair_stats['unmapped_end']
       n_unique_map = pair_stats['unique'][0]
-      n_anbigous = pair_stats['ambiguous'][0]
+      
+      n_anbigous = pair_stats['position_ambiguous'][0] + pair_stats['genome_ambiguous'][0]
 
       n_promisc, n_prom_inp = promiscuity_stats['promiscuous']
       n_reads_1 = clip_stats1['input_reads']
@@ -151,7 +157,7 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       n_isol = 0
       n_cont = 1
 
-      chromo_limits, contacts = load_ncc(ncc_path)
+      chromo_limits, contacts, contact_dict = load_ncc(ncc_path)
       chromos = sorted(chromo_limits)
 
       trans_counts = {}
@@ -189,7 +195,7 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
 
       trans_dev, ploidy = _get_trans_dev(trans_counts)
 
-      mito_frac, mito_cat = _get_mito_fraction(contacts)
+      mito_frac, mito_cat = _get_mito_fraction(contact_dict, bin_size=0)
 
       ccs = '%s/%s' % (ploidy, mito_cat)
 
@@ -197,9 +203,10 @@ def nuc_stats(ncc_paths, json_paths, quiet=False, tsv_file_path=None, text_file_
       npv = 0.01 * float(n_pairs_vaild)
       ne = 0.01 * float(n_ends)
       npi = 0.01 * float(n_prom_inp)
-      nc = 0.01 * float(n_contacts)
+      nc = 0.01 * float(n_contacts) or 1.0
 
-      hist, edges = frag_sizes
+      hist, hist2, hist3, edges, hist4, hist5, edges45 = frag_sizes
+  
       nf = sum(hist)
       q1 = 0.25 * nf
       q3 = 0.75 * nf
