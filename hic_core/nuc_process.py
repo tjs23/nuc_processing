@@ -1720,7 +1720,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         if revcomp_a and var[-1] == '0' and var[-2] in 'GCAT': # Ignore substitutions at the end e.g "C0"; add back subtracted score
           var = var[:-2]
         
-          if seq[-1] != 'N': # No penalty for N's
+          if seq_a[-1] != 'N': # No penalty for N's
             q = min(ord(qual[-1]) - zero_ord, 40.0)
             mp1 = 2 + floor(4*q/40.0)  # MX = 6, MN = 2.
             score = min(score+mp1, max_score)
@@ -1729,7 +1729,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         elif var[0] == '0' and var[1] in 'GCAT':
           var = var[2:]
           
-          if seq[0] != 'N':
+          if seq_a[0] != 'N':
             q = min(ord(qual[0]) - zero_ord, 40.0)
             mp2 = 2 + floor(4*q/40.0)  
             score = min(score+mp2, max_score)
