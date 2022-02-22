@@ -1659,6 +1659,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
   n_strand2 = 0
   n_primary_strand1 = 0
   n_primary_strand2 = 0
+  zero_ord = QUAL_ZERO_ORDS['phred33']
   
   # Go through same files and pair based on matching id
   # Write out any to-many mapings to ambiguous
