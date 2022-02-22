@@ -1709,6 +1709,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         revcomp_a = int(data_a[1]) & 0x10
         start_a = int(data_a[3])
         seq_a = data_a[9]
+        qual_a = data_a[10]
         nbp = len(seq_a)
         end_a = start_a + nbp
        
@@ -1716,24 +1717,23 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         score_a, var = SCORE_TAG_SEARCH(line1).groups()             
         score_a = int(score_a) # when --local : -nbp*2
 
-
         if revcomp_a and var[-1] == '0' and var[-2] in 'GCAT': # Ignore substitutions at the end e.g "C0"; add back subtracted score
           var = var[:-2]
         
           if seq_a[-1] != 'N': # No penalty for N's
-            q = min(ord(qual[-1]) - zero_ord, 40.0)
+            q = min(ord(qual_a[-1]) - zero_ord, 40.0)
             mp1 = 2 + floor(4*q/40.0)  # MX = 6, MN = 2.
-            score = min(score+mp1, max_score)
-            end -= 1
+            score_a = min(score_a+mp1, max_score)
+            end_a -= 1
 
         elif var[0] == '0' and var[1] in 'GCAT':
           var = var[2:]
           
           if seq_a[0] != 'N':
-            q = min(ord(qual[0]) - zero_ord, 40.0)
+            q = min(ord(qual_a[0]) - zero_ord, 40.0)
             mp2 = 2 + floor(4*q/40.0)  
-            score = min(score+mp2, max_score)
-            start += 1
+            score_a = min(score_a+mp2, max_score)
+            start_a += 1
 
         if revcomp_a:
           start_a, end_a = end_a, start_a  # The sequencing read started from the other end
@@ -1768,21 +1768,34 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         revcomp_b = int(data_b[1]) & 0x10
         start_b = int(data_b[3])
         seq_b = data_b[9]
+        qual_b = data_b[10]
         nbp = len(seq_b)
         end_b = start_b + nbp
-
-        if revcomp_b:
-          start_b, end_b = end_b, start_b  # The sequencing read started from the other end
 
         name_b = chromo_names.get(chr_b, chr_b)
         score_b, var = SCORE_TAG_SEARCH(line2).groups()             
         score_b = int(score_b) # when --local : -nbp*2
 
-        if revcomp_b  and (var[-1] == '0'):# Ignore substitutions at end
-          score_b = min(score_b+5, max_score)
+        if revcomp_b and var[-1] == '0' and var[-2] in 'GCAT': # Ignore substitutions at the end e.g "C0"; add back subtracted score
+          var = var[:-2]
+        
+          if seq_b[-1] != 'N': # No penalty for N's
+            q = min(ord(qual_b[-1]) - zero_ord, 40.0)
+            mp1 = 2 + floor(4*q/40.0)  # MX = 6, MN = 2.
+            score_b = min(score_b+mp1, max_score)
+            end_b -= 1
+
+        elif var[0] == '0' and var[1] in 'GCAT':
+          var = var[2:]
           
-        elif var[0] == '0': # Ignore substitutions at start
-          score_b = min(score_b+5, max_score)
+          if seq_b[0] != 'N':
+            q = min(ord(qual_b[0]) - zero_ord, 40.0)
+            mp2 = 2 + floor(4*q/40.0)  
+            score_b = min(score_b+mp2, max_score)
+            start_b += 1
+
+        if revcomp_b:
+          start_b, end_b = end_b, start_b  # The sequencing read started from the other end
 
         ncc_b = (name_b, start_b, end_b, 0, 0, '-' if revcomp_b else '+')
         contact_b.append((ncc_b, score_b))
