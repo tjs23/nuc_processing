@@ -960,6 +960,8 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
       else:
         junct_sep_counts_neg[int(delta_re1_a/10.0)] += 1
       
+    else:
+      size_bin = int(10*np.log10(max(size_t, 1)))
     
     size_counts[size_bin] += 1
     
