@@ -1574,12 +1574,17 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
       score_tol = 5
       
       for score, i, j, ncc_a, ncc_b in pairs:
-        chr1, gen1 = ncc_a[0].split('.')
-        chr2, gen2 = ncc_b[0].split('.')
-            
         if score == best_score and (best_score >= 2 * (max_score - 12)):
-          if chr1 == chr2 and (gen1 != gen2):
-            score_tol = 15 # Stricter for homologous chromosomes
+          chr1 = ncc_a[0]
+          chr2 = ncc_b[0]
+          
+          if ('.' in chr1) and ('.' in chr2):
+            chr1, gen1 = chr1.split('.')
+            chr2, gen2 = chr2.split('.')
+          
+            if chr1 == chr2 and (gen1 != gen2):
+              score_tol = 15 # Stricter for homologous chromosomes
+              break
       
       if best_score < 2 * (max_score - 12): # Nothing any good
         n_hybrid_poor += 1
