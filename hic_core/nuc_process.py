@@ -66,6 +66,7 @@ STAR_SITES = {'HindIII*':('A^AACT_T',
                           'A^AGCT_C',
                           'A^AGCT_G'),
               'DpnII*':('^GATG_',
+                        '^CATG_',
                         '^CATC_')}
 ADAPTER_SEQS = {'Nextera':'CTGTCTCTTATA',
                 'Illumina universal':'AGATCGGAAGAGC'}
