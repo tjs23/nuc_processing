@@ -78,6 +78,7 @@ READ_BUFFER = 2**16
 MIN_READ_LEN = 18
 NUM_MAP_FASTAS = 10
 CLOSE_AMBIG = 1000
+BOWTIE_MAX_AMBIG_SCORE_TOL = 5
 EXCLUDE_BIN_SIZE = 100000
 ID_LEN = 10
 MIN_ADAPT_OVERLAP = 7
@@ -1425,7 +1426,11 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
   n_hybrid_end_missing = 0
   n_primary_strand = [0,0,0,0]
   n_strand = [0,0,0,0]
+  
+  max_score = 0
   zero_ord = QUAL_ZERO_ORDS['phred33']
+  really_bad_score = 2 * (max_score - 2 * (BOWTIE_MAX_AMBIG_SCORE_TOL+1) )
+  close_second_best = 2 * BOWTIE_MAX_AMBIG_SCORE_TOL - 1
   
   # Go through same files and pair based on matching id
   # Write out any multi-position mapings
@@ -1437,7 +1442,6 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
   # Process data lines
 
   ids = [line[:ID_LEN] for line in lines]
-  max_score = 0
   searchsorted = np.searchsorted
 
   while '' not in ids:
@@ -1520,7 +1524,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
       if not unique_map: # Resolve some perfect vs non-perfect positional ambiguity
         for a in (0,1,2,3):
           if len(scores[a]) > 1:
-            score_lim = max(scores[a]) - 9 # Allow one mismatch or two consec
+            score_lim = max(scores[a]) - close_second_best # Allow one mismatch or two consec
             idx = [i for i, score in enumerate(scores[a]) if score > score_lim]
             contacts[a] = [contacts[a][i] for i in idx]
             scores[a] = [scores[a][i] for i in idx]
@@ -1571,10 +1575,10 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
       
       pairs.sort(reverse=True)
       best_score = pairs[0][0]
-      score_tol = 5
+      score_tol = BOWTIE_MAX_AMBIG_SCORE_TOL
       
       for score, i, j, ncc_a, ncc_b in pairs:
-        if score == best_score and (best_score >= 2 * (max_score - 12)):
+        if score == best_score and (best_score >= really_bad_score):
           chr1 = ncc_a[0]
           chr2 = ncc_b[0]
           
@@ -1583,15 +1587,15 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
             chr2, gen2 = chr2.split('.')
           
             if chr1 == chr2 and (gen1 != gen2):
-              score_tol = 15 # Stricter for homologous chromosomes
+              score_tol = 3 * BOWTIE_MAX_AMBIG_SCORE_TOL # Stricter for homologous chromosomes
               break
       
-      if best_score < 2 * (max_score - 12): # Nothing any good
+      if best_score < really_bad_score: # Nothing any good
         n_hybrid_poor += 1
         continue
 
       else:
-        pairs = [x for x in pairs if x[0] >= best_score-score_tol]
+        pairs = [x for x in pairs if x[0] >= best_score-BOWTIE_MAX_AMBIG_SCORE_TOL]
                 
       ambig_code = float(len(pairs))
       is_pos_ambig = False
@@ -1666,7 +1670,11 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
   n_strand2 = 0
   n_primary_strand1 = 0
   n_primary_strand2 = 0
+  
+  max_score = 0
   zero_ord = QUAL_ZERO_ORDS['phred33']
+  really_bad_pair_score = 2 * (max_score - 2 * (BOWTIE_MAX_AMBIG_SCORE_TOL+1) )
+  close_second_best = 2 * BOWTIE_MAX_AMBIG_SCORE_TOL - 1
   
   # Go through same files and pair based on matching id
   # Write out any to-many mapings to ambiguous
@@ -1680,7 +1688,6 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
 
   id1 = line1[:ID_LEN]
   id2 = line2[:ID_LEN]
-  max_score = 0
  
   while id1 and id2:
     if id1 < id2:
@@ -1820,10 +1827,26 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
       j += 1
 
     if not unique_map: # Resolve some perfect vs non-perfect positional ambiguity
+      # Assess ambiguous ends separately 
       na = len(scores_a)
       nb = len(scores_b)
       
-      if na and nb and (max(na, nb) > 1):
+      # Consider only fairly close second best mappings
+      if na > 1:
+        score_lim = max(scores_a) - close_second_best # Allow one mismatch or two consec
+        idx = [i for i, score in enumerate(scores_a) if score > score_lim] # Mismatches negative; generally best score is 0
+        contact_a = [contact_a[i] for i in idx]
+        scores_a = [scores_a[i] for i in idx]
+        na = len(scores_a)
+
+      if nb > 1:
+        score_lim = max(scores_b) - close_second_best # Allow one mismatch or two consec
+        idx = [i for i, score in enumerate(scores_b) if score > score_lim]
+        contact_b = [contact_b[i] for i in idx]
+        scores_b = [scores_b[i] for i in idx]
+        nb = len(scores_b)
+            
+      if 0: # na and nb and (max(na, nb) > 1):
         n_best_a = scores_a.count(max_score) # Zero is best/perfect score in end-to-end mode but not local mode
         n_best_b = scores_b.count(max_score)
 
@@ -1835,7 +1858,8 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
           contact_b = [contact_b[j]]
       
       else:
-        if len(scores_a) > 1:
+        # Second best of little consequence if very close in cis
+        if len(scores_a) == 2:
           chr_name1, start1 = contact_a[0][0][:2]
           chr_name2, start2 = contact_a[1][0][:2]
  
@@ -1843,7 +1867,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
             i = scores_a.index(max(scores_a))
             contact_a = [contact_a[i]]
 
-        if len(scores_b) > 1:
+        if len(scores_b) == 2:
           chr_name1, start1 = contact_b[0][0][:2]
           chr_name2, start2 = contact_b[1][0][:2]
  
@@ -1851,37 +1875,70 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
             i = scores_b.index(max(scores_b))
             contact_b = [contact_b[i]]        
     
-    n_pairs += 1
+    iid = int(_id)
+    n_pairs += 1 # Read pairs
     n_a = len(contact_a)
     n_b = len(contact_b)
-    ac = n_a * n_b
-    iid = int(_id)
-
-    if ac == 0: # Either end not mapped
+    n_poss = n_a * n_b # And mapping pairs (maybe ambig)
+    
+    if n_poss == 0: # Either end not mapped
       n_unmapped += 1
       continue
 
-    elif ac == 1: # No multi-position mapping
+    elif n_poss == 1: # No multi-position mapping
       n_unambig += 1
       ncc_a, score_a = contact_a[0]
       ncc_b, score_b = contact_b[0]
       _write_ncc_line(ncc_a, ncc_b, 1.0, iid, write_pair)
-      
-    else:
+    
+    elif unique_map: # No resoultion of ambiguous ends
       n_ambig += 1
       
       if ambig:
-        ac = float(ac)
+        ambig_code = float(n_poss)
         for ncc_a, score_a in contact_a:
           for ncc_b, score_b in contact_b:
-            _write_ncc_line(ncc_a, ncc_b, ac, iid, write_pair) # Write all pair combinations where ambigous
-            ac = 0.0
+            _write_ncc_line(ncc_a, ncc_b, ambig_code, iid, write_pair) # Write all pair combinations where ambigous
+            ambig_code = 0.0   
+      
+    else:
+      # Assess ambiguous paired ends 
+     
+      pairs = []
+      for ncc_a, score_a in contact_a:
+        for ncc_b, score_b in contact_b:
+          pairs.append((score_a + score_b, ncc_a, ncc_b))
+          
+      pairs.sort(reverse=True)
+      best_score = pairs[0][0]
+      
+      if best_score < really_bad_pair_score: # Nothing any good; generally a genome build issue
+        n_unself += 1
+        continue
+        
+      pairs = [x for x in pairs if x[0] >= best_score-BOWTIE_MAX_AMBIG_SCORE_TOL] 
+      n_poss = len(pairs)
+      
+      if n_poss > 1:
+        n_ambig += 1
+        
+        if ambig:
+          ambig_code = float(n_poss)
+ 
+          for score_ab, ncc_a, ncc_b in pairs:
+            _write_ncc_line(ncc_a, ncc_b, ambig_code, iid, write_pair) # Write all pair combinations where ambigous
+            ambig_code = 0.0
+        
+      else:
+        n_unambig += 1
+        score_ab, ncc_a, ncc_b = pairs[0]
+        _write_ncc_line(ncc_a, ncc_b, 1.0, iid, write_pair)
 
   ncc_file_obj.close()
 
   stats = [('end_1_alignments', n_map1),
            ('end_2_alignments', n_map2),
-           ('non_self_mappable', n_unself),
+           ('ambig_all_poor', n_unself),
            ('unpaired_ends', n_unpaired),
            ('unmapped_end', (n_unmapped, n_pairs)),
            ('unique', (n_unambig, n_pairs)),
@@ -2534,8 +2591,8 @@ def index_genome(base_name, file_names, output_dir, indexer_exe='bowtie2-build',
   if pack:
     cmd_args.append('-p')
 
-  #cmd_args += ['-t', str(table_size), '--threads', str(num_cpu), fasta_file_str, base_name]
-  cmd_args += ['-t', str(table_size), fasta_file_str, base_name]
+  cmd_args += ['-t', str(table_size), '--threads', str(num_cpu), fasta_file_str, base_name]
+  #cmd_args += ['-t', str(table_size), fasta_file_str, base_name]
 
   call(cmd_args, cwd=output_dir)
 
