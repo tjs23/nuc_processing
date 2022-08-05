@@ -1,7 +1,7 @@
 """
 ---- COPYRIGHT ----------------------------------------------------------------
 
-Copyright (C) 20016-2019
+Copyright (C) 20016-2022
 Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
 
 

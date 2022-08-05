@@ -3141,9 +3141,9 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     if len(fastq_paths) > 2:
       fatal('More than two FASTQ files specified (exactly two required)')
 
-  # Ambiguous data is only for single-cell use
+  # Ambiguous data is usually only for single-cell use
   if is_pop_data and ambig:
-    fatal('Ambiguous option is incompatible with population Hi-C data')
+    warn('Ambiguous option is being used with population Hi-C data')
 
   if not (0 <= min_qual <= 40):
     fatal('Miniumum FASTQ quality score must be in the range 0-40 (%d specified).' % min_qual)
