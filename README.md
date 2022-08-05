@@ -8,7 +8,7 @@ This software takes paired FASTQ sequence read files, a reference genome sequenc
 
 There are two main versions of NucProcess, a stable release that corresponds to the primary publications and a development version where new features are being added and tested. We recommend using the stable release under normal circumstances.
 
-The current stable version is available here: [Release 1.0](https://github.com/tjs23/nuc_processing/tree/release_1.0)
+The current stable version is available here: [Release 1.3](https://github.com/tjs23/nuc_processing/tree/release_1.3)
 
 The development version is available here: [Development master](https://github.com/tjs23/nuc_processing/tree/master)  
 
