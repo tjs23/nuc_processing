@@ -2356,8 +2356,6 @@ def get_genome_star_sites(re_name, genome_fastas1, genome_fastas2, chromo_name_d
       
   msg = 'Calculating %s star locations for %s contig %s'
   
-  print(hom_chromo_dict)
-  
   for is_second, fasta_files in enumerate((genome_fastas1, genome_fastas2)):
     if not fasta_files:
       continue
