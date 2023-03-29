@@ -3531,15 +3531,16 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
 
   if final_stats[0][1] > 1: # Final contacts
     pdf_path = '{}_contact_map.pdf'.format(os.path.splitext(out_file)[0])
+    # Contact_map resolution to be determined by chromosome sizes
     
     if is_pop_data:
       npz_path = '{}.npz'.format(os.path.splitext(out_file)[0])
       bin_ncc(out_file, npz_path, bin_size=25.0)
-      contact_map([npz_path], pdf_path, bin_size=None, bin_size2=250.0,
+      contact_map([npz_path], pdf_path, bin_size=None, bin_size2=None,
                   no_separate_cis=False, is_single_cell=False)
 
     else:
-      contact_map([out_file], pdf_path, bin_size=None, bin_size2=250.0,
+      contact_map([out_file], pdf_path, bin_size=None, bin_size2=None,
                   no_separate_cis=False, is_single_cell=True)
   
   if is_hybrid and not is_pop_data:
