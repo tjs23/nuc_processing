@@ -54,6 +54,7 @@ RE_SITES = {'MboI'   : '^GATC_',
             'DpnII*' : '^GATC_',
             'AluI'   : 'AG^CT',
             'BglII'  : 'A^GATC_T',
+            'HinfI'  : 'G^ANT_C',
             'HindIII': 'A^AGCT_T',
             'HindIII*': 'A^AGCT_T'}
 STAR_SITES = {'HindIII*':('A^AACT_T',
@@ -2102,6 +2103,9 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   
   adapt_list = [(adapt_seq, adapt_seq[:MIN_ADAPT_OVERLAP], len(adapt_seq)) for adapt_seq in adapt_seqs]
   
+  if junct_seq:
+    junct_re = re.compile(junct_seq.replace('N','[GCAT]'))
+  
   while line1:
     n_reads += 1
     line2 = readline()[trim_5:end]
@@ -2134,9 +2138,11 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
             n_adapt += 1
           
     if junct_seq:
-      if junct_seq in line2:
+      re_match = junct_re.search(line2)
+    
+      if re_match:
         n_jclip += 1
-        i = line2.index(junct_seq)
+        i = re_match.start()
         junct_pos_counts[i] += 1
         line2 = line2[:i]
  
