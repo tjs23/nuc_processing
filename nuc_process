@@ -1,6 +1,6 @@
 #!/bin/sh
 
 export NUC_PROCESS_DIR="$(cd $(dirname "$0"); pwd)"
-export PYTHONPATH="${PYTHONPATH}:.:${NUC_PROCESS_DIR}"
+export PYTHONPATH="${PYTHONPATH}:.:${NUC_PROCESS_DIR}:${NUC_PROCESS_DIR}/nuc_tools"
 
 python3 -m hic_core.nuc_process $*
