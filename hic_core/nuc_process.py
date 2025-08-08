@@ -46,7 +46,7 @@ from subprocess import Popen, PIPE, call
 from math import floor
 
 PROG_NAME = 'nuc_process'
-VERSION = '1.3.2'
+VERSION = '1.3.3'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
 RE_SITES = {'MboI'   : '^GATC_',
@@ -320,10 +320,11 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
   
   from itertools import combinations
   
+  stat_key = 'promsic_ambig' if ambig else 'promsic'
   clean_ncc_file = tag_file_name(ncc_file, 'clean')
   clean_ncc_file_temp = clean_ncc_file + TEMP_EXT
 
-  if INTERRUPTED and os.path.exists(clean_ncc_file) and not os.path.exists(clean_ncc_file_temp):
+  if INTERRUPTED and section_is_logged(stat_key) and os.path.exists(clean_ncc_file) and not os.path.exists(clean_ncc_file_temp):
     return clean_ncc_file
 
   if keep_files:
@@ -437,7 +438,6 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
            ('accepted',(n_clean+n_resolved, n)),
            ]
 
-  stat_key = 'promsic_ambig' if ambig else 'promsic'
   log_report(stat_key, stats)
 
   move(clean_ncc_file_temp, clean_ncc_file)
@@ -531,7 +531,7 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
   out_file_name = tag_file_name(ncc_file, 'multi_read')
   sort_file_name = tag_file_name(ncc_file, 'sort')
 
-  if INTERRUPTED and os.path.exists(out_file_name) and not os.path.exists(sort_file_name):
+  if INTERRUPTED and section_is_logged('dup') and os.path.exists(out_file_name) and not os.path.exists(sort_file_name):
     return out_file_name
 
   # Calculate sizes of ambiguity groups
@@ -703,12 +703,13 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
 
 def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chromo_dict,
                  sizes=(100,2000), keep_files=True, zip_files=False, min_mappability=1,
-                 re2_tolerance=1000, ambig=False, star_dict=None):
+                 re2_tolerance=1000, star_dict=None):
 
+  stat_key = 'filter'
   filter_file = tag_file_name(pair_ncc_file, 'filter_accepted', '.ncc')
   filter_file_temp = filter_file + TEMP_EXT
 
-  if INTERRUPTED and os.path.exists(filter_file) and not os.path.exists(filter_file_temp):
+  if INTERRUPTED and section_is_logged(stat_key) and os.path.exists(filter_file) and not os.path.exists(filter_file_temp):
     return filter_file, {}
 
   re1_frag_dict = {}
@@ -1198,14 +1199,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
     else:
       histjunct_sep_neg.append(0.0)
     
-  if ambig:
-    stat_key = 'filter_ambig'
-    frag_key = 'frag_sizes_ambig'
-  
-  else:
-    stat_key = 'filter'
-    frag_key = 'frag_sizes'
-
+  frag_key = 'frag_sizes'
   extra_vals = (hist_sizes, hist_sizes_accept_cis, hist_sizes_accept_trans, size_edges,
                 histjunct_sep_pos, histjunct_sep_neg, seps_edges)
 
@@ -1408,7 +1402,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
   paired_ncc_file_name = tag_file_name(file_root, 'pair', '.ncc')
   paired_ncc_file_name_temp = paired_ncc_file_name + TEMP_EXT
 
-  if INTERRUPTED and os.path.exists(paired_ncc_file_name) and not os.path.exists(paired_ncc_file_name_temp):
+  if INTERRUPTED and section_is_logged('pair') and os.path.exists(paired_ncc_file_name) and not os.path.exists(paired_ncc_file_name_temp):
     return paired_ncc_file_name
 
   ncc_file_obj = open(paired_ncc_file_name_temp, 'w')
@@ -1648,7 +1642,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
   paired_ncc_file_name = tag_file_name(file_root, 'pair', '.ncc')
   paired_ncc_file_name_temp = paired_ncc_file_name + TEMP_EXT
 
-  if INTERRUPTED and os.path.exists(paired_ncc_file_name) and not os.path.exists(paired_ncc_file_name_temp):
+  if INTERRUPTED and section_is_logged('pair') and os.path.exists(paired_ncc_file_name) and not os.path.exists(paired_ncc_file_name_temp):
     return paired_ncc_file_name
    
   ncc_file_obj = open(paired_ncc_file_name_temp, 'w')
@@ -1957,10 +1951,11 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
 
 def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, job):
 
+  stat_key = 'map_%d' % job
   sam_file_path = tag_file_name(fastq_file, 'map%d' % job, '.sam')
   sam_file_path_temp = sam_file_path + TEMP_EXT
 
-  if INTERRUPTED and os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
+  if INTERRUPTED and section_is_logged(stat_key) and os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
     return sam_file_path
 
   if os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
@@ -2032,7 +2027,6 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
            ('ambiguous',(n_ambig, n_reads)),
            ('unmapped',(n_unmap, n_reads))]
 
-  stat_key = 'map_%d' % job
   log_report(stat_key, stats)
 
   move(sam_file_path_temp, sam_file_path)
@@ -2055,6 +2049,13 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   #  from string import maketrans
   #  trans_table = maketrans('ATGC', 'TACG')
   #  adapt_seqs += [seq.translate(trans_table)[::-1] for seq in adapt_seqs]
+  
+  if is_second:
+    stat_key = 'clip_2'
+    re1_key = 're1_pos_2'
+  else:
+    stat_key = 'clip_1'
+    re1_key = 're1_pos_1'  
         
   sam_file_path = tag_file_name(file_root, '%s_map%d' % (tag, job), '.sam')
   sam_file_path_temp = sam_file_path + TEMP_EXT
@@ -2062,13 +2063,10 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   clipped_file = tag_file_name(file_root, tag, '.fastq')
   clipped_file_temp = clipped_file + TEMP_EXT
   
-  if INTERRUPTED and os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
+  if INTERRUPTED and section_is_logged(stat_key) and os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
     return clipped_file
 
-  if INTERRUPTED and os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
-    return clipped_file
-
-  if INTERRUPTED and os.path.exists(clipped_file) and not os.path.exists(clipped_file_temp):
+  if INTERRUPTED and section_is_logged(stat_key) and os.path.exists(clipped_file) and not os.path.exists(clipped_file_temp):
     return clipped_file
   
   in_file_obj = open_file_r(fastq_file, complete=not bool(max_reads_in))
@@ -2220,13 +2218,6 @@ def clip_reads(fastq_file, file_root, junct_seq, replaced_seq, qual_scheme, min_
   
   if adapt_seqs:
     stats.insert(3, ("3'_adapter",(n_adapt, n_reads)) )
-  
-  if is_second:
-    stat_key = 'clip_2'
-    re1_key = 're1_pos_2'
-  else:
-    stat_key = 'clip_1'
-    re1_key = 're1_pos_1'  
     
   log_report(stat_key, stats, {re1_key:(re1_pos_hist, junc_pos_hist, re1_pos)})
 
@@ -2930,6 +2921,18 @@ def get_fastq_qual_scheme(file_path):
 
   return scheme
 
+
+def section_is_logged(section):
+  
+  if os.path.exists(STAT_FILE_PATH):
+    with open(STAT_FILE_PATH) as file_obj:
+      stat_dict = json.load(file_obj)
+
+  else:
+    stat_dict = {}
+  
+  return section in stat_dict
+  
 
 def log_report(section, data_pairs, extra_dict=None):
 
