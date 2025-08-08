@@ -80,6 +80,7 @@ READ_BUFFER = 2**16
 MIN_READ_LEN = 18
 NUM_MAP_FASTAS = 10
 CLOSE_AMBIG = 1000
+CLOSE_CIS = 5000
 BOWTIE_MAX_AMBIG_SCORE_TOL = 5
 EXCLUDE_BIN_SIZE = 100000
 ID_LEN = 10
@@ -702,7 +703,7 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
 
 
 def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chromo_dict,
-                 sizes=(100,2000), keep_files=True, zip_files=False, min_mappability=1,
+                 sizes=(100,2000),  keep_files=True, zip_files=False,
                  re2_tolerance=1000, star_dict=None):
 
   stat_key = 'filter'
@@ -1397,7 +1398,7 @@ def _load_exclusion_file(file_path, bin_size=EXCLUDE_BIN_SIZE):
   
        
 def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_names,
-                            file_root, ambig=True, unique_map=False):
+                            file_root, ambig=True, unique_map=False, species_hybrid=False):
 
   paired_ncc_file_name = tag_file_name(file_root, 'pair', '.ncc')
   paired_ncc_file_name_temp = paired_ncc_file_name + TEMP_EXT
@@ -1438,7 +1439,6 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
   # Process data lines
 
   ids = [line[:ID_LEN] for line in lines]
-  searchsorted = np.searchsorted
 
   while '' not in ids:
     _id = max(ids)
@@ -1477,8 +1477,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
             nbp = len(seq)
             end = start + nbp
             
-            score, var = SCORE_TAG_SEARCH(line).groups()
-            var_orig = var             
+            score, var = SCORE_TAG_SEARCH(line).groups()     
             score = int(score) # when --local : -nbp*2
 
             if revcomp and var[-1] == '0' and var[-2] in 'GCAT': # Ignore substitutions at the end e.g "C0"; add back subtracted score
@@ -1543,7 +1542,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
                   chr_name1, start1 = contacts[end][0][0][:2]
                   chr_name2, start2 = contacts[end][1][0][:2]
  
-                  if (chr_name1 == chr_name2) and (abs(start2-start1) < CLOSE_AMBIG): # For position ambiguous v. close in cis almost certainly correct
+                  if (chr_name1 == chr_name2) and (abs(start2-start1) < CLOSE_AMBIG): # Positional ambiguity very close in cis anyhow
                     i = scores[end].index(max(scores[end]))
                     contacts[end] = [contacts[end][i]]
               
@@ -1559,32 +1558,44 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
         n_unmapped += 1
         continue
       
-      elif min(n0, n1, n2, n3) == 0: # Not all ends accounted for 
+      elif (not species_hybrid) and (min(n0, n1, n2, n3) == 0): # Not all ends accounted for 
         n_hybrid_end_missing += 1
         continue      
-
+      
+      genomes_with_close_cis = 0
+      for end_a, end_b in ((0,1), (2,3)): # A:A, B:B cis genome only
+        for i, (ncc_a, score_a) in enumerate(contacts[end_a]):
+          chr_name1, start1 = ncc_a[:2]
+ 
+          for j, (ncc_b, score_b) in enumerate(contacts[end_b]):
+            chr_name2, start2 = ncc_b[:2]
+ 
+            if (chr_name1 == chr_name2) and (abs(start2-start1) < CLOSE_CIS):
+              genomes_with_close_cis += 1
+              break
+ 
+          else:
+            continue
+ 
+          break
+      
+      if species_hybrid and (genomes_with_close_cis > 0): # Homologous ambiguity much less common
+        hybrid_options = ((0,1), (2,3)) # At least one close in cis. Don't consider any homologous trans
+       
+      elif genomes_with_close_cis == 2:
+        hybrid_options = ((0,1), (2,3)) # Both close in cis. Don't consider any homologous trans
+       
+      else:
+        hybrid_options = ((0,1), (2,3), (0,3), (2,1)) # A:A, B:B, A:B, B:A genome pairings
+            
       pairs = []
-      for end_a, end_b in ((0,1), (2,3), (0,3), (2,1)): # A:A, B:B, A:B, B:A genome pairings
+      for end_a, end_b in hybrid_options:
         for i, (ncc_a, score_a) in enumerate(contacts[end_a]):
           for j, (ncc_b, score_b) in enumerate(contacts[end_b]):
             pairs.append((score_a + score_b, i, j, ncc_a, ncc_b))            
       
       pairs.sort(reverse=True)
       best_score = pairs[0][0]
-      score_tol = BOWTIE_MAX_AMBIG_SCORE_TOL
-      
-      for score, i, j, ncc_a, ncc_b in pairs:
-        if score == best_score and (best_score >= really_bad_score):
-          chr1 = ncc_a[0]
-          chr2 = ncc_b[0]
-          
-          if ('.' in chr1) and ('.' in chr2):
-            chr1, gen1 = chr1.split('.')
-            chr2, gen2 = chr2.split('.')
-          
-            if chr1 == chr2 and (gen1 != gen2):
-              score_tol = 3 * BOWTIE_MAX_AMBIG_SCORE_TOL # Stricter for homologous chromosomes
-              break
       
       if best_score < really_bad_score: # Nothing any good
         n_hybrid_poor += 1
@@ -3108,8 +3119,8 @@ def read_chromo_names(chr_name_paths, genome_indices, re_name):
 
 def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_names1=None, chr_names2=None,
                 sizes=(300,800), min_rep=2, num_cpu=1, num_copies=1, ambig=True, unique_map=False, out_file=None,
-                report_file=None, align_exe=None, qual_scheme=None, min_qual=30, g_fastas=None,
-                g_fastas2=None, is_pop_data=False, remap=False, reindex=False, keep_files=True, lig_junc=None,
+                report_file=None, align_exe=None, qual_scheme=None, min_qual=30, g_fastas=None, g_fastas2=None,
+                species_hybrid=False, is_pop_data=False, remap=False, reindex=False, keep_files=True, lig_junc=None,
                 zip_files=True, sam_format=True, verbose=True, max_reads_in=None, adapt_seqs=None,
                 trim_5=0, trim_3=0):
   """
@@ -3130,6 +3141,10 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     is_hybrid = True
   else:
     is_hybrid = False 
+  
+    if species_hybrid:
+      warn('The --species-hybrid/-sh option will be ignored. This is only valid for hybrid data with dual genome indices')
+      species_hybrid = False
   
   if (re1 is None) and not chr_names1:
      fatal('A chromosome naming file must be specified (-c) when primary restriction enzyme (re1) is None')
@@ -3354,6 +3369,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
     ('Keep intermediate files?', 'Yes' if keep_files else 'No'),
     ('Input is single-cell Hi-C?', 'No' if is_pop_data else 'Yes'),
     ('Strict mapping only?', 'Yes' if unique_map else 'No'),
+    ('Species hybrid?', 'Yes' if species_hybrid else 'No'),
     ('SAM output?', 'Yes' if sam_format else 'No'),
     ('GZIP output?', 'Yes' if zip_files else 'No'),
   ]
@@ -3433,7 +3449,8 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
 
   if is_hybrid:
     paired_ncc_file = pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4,
-                                              chromo_name_dict, intermed_file_root, ambig, unique_map)
+                                              chromo_name_dict, intermed_file_root, ambig,
+                                              unique_map, species_hybrid)
   else:
     paired_ncc_file = pair_mapped_seqs(sam_file1, sam_file2, chromo_name_dict,
                                        intermed_file_root, ambig, unique_map)
@@ -3446,7 +3463,8 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   info('Filtering mapped sequences...')
    
   filter_output = filter_pairs(paired_ncc_file, re1_files, re2_files, chromo_name_dict,
-                               hom_chromo_dict, sizes, keep_files, zip_files, star_dict=star_dict)
+                               hom_chromo_dict, sizes, keep_files,
+                               zip_files, star_dict=star_dict)
   
   filter_ncc_file, fail_file_names = filter_output
 
@@ -3660,7 +3678,7 @@ def main(argv=None):
                               ' single-cell processing steps are avoided')
 
   arg_parse.add_argument('-pt', '--pair-end-tags', nargs=2, metavar='PAIRED_READ_TAGS', dest='pt', default=['r_1','r_2'],
-                         help='When more than two FASTQ files are input (batch mode),' \
+                         help='When more than two FASTQ files are input (i.e. in batch mode),' \
                               ' the subtrings/tags which differ between paired FASTQ' \
                               ' file paths. Default: r_1 r_2')
 
@@ -3674,6 +3692,12 @@ def main(argv=None):
   arg_parse.add_argument('-f2', '--genome-fastas-2', nargs='+', metavar='FASTA_FILES_2', dest='f2',
                          help='A second set of genome FASTA files for building a second genome' \
                               ' index when using hybrid strain cells (accepts wildcards).')
+
+  arg_parse.add_argument('-sh', '--species-hybrid', default=False, action='store_true', dest='sh',
+                         help='For hybrid data, where two different genome builds/indices are specified.' \
+                              ' This option is used to indicate that the genome builds relate to different species,' \
+                              ' rather than different strains/individuals of the same species. Using this option' \
+                              ' removes the expectation of abundant homologous chromosome ambiguity.')
 
   arg_parse.add_argument('-a', '--ambiguous', default=False, action='store_true', dest='a',
                          help='Whether to report ambiguously mapped contacts')
@@ -3701,8 +3725,8 @@ def main(argv=None):
 
   arg_parse.add_argument('-cc', '--chromo-copies', default=0, metavar='GENOME_COPIES', dest='cc',
                          type=int, help='Number of whole-genome copies, e.g. for G2 phase;' \
-                              ' Default 1 unless as second genome index is specified' \
-                              ' for hybrid samples.')
+                              ' Defaults to 1 unless as second genome index is specified' \
+                              ' for hybrid samples, in which case the default is 2.')
 
   arg_parse.add_argument('-lim', '--limit-reads', default=0, metavar='MAX_READS', dest='lim',
                          type=int, help='Limit the number of input reads considered: useful for' \
@@ -3757,6 +3781,7 @@ def main(argv=None):
   num_copies = args['cc']
   lim_reads = args['lim'] or None
   adapt_seqs = args['ad']
+  species_hybrid = args['sh']
   trim_5 = args['5']
   trim_3 = args['3']
   
@@ -3796,7 +3821,7 @@ def main(argv=None):
   for fastq_path_pair in fastq_pairs:
     nuc_process(fastq_path_pair, genome_index, genome_index2, re1, re2, c1, c2, sizes, min_rep,
                 num_cpu, num_copies, ambig, unique_map, out_file, report_file, align_exe,
-                qual_scheme, min_qual, g_fastas, g_fastas2, is_pop_data, remap, reindex, keep_files,
+                qual_scheme, min_qual, g_fastas, g_fastas2, species_hybrid, is_pop_data, remap, reindex, keep_files,
                 lig_junc, zip_files, sam_format, verbose, lim_reads, adapt_seqs, trim_5, trim_3)
 
   # Required:
