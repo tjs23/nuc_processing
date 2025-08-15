@@ -140,7 +140,7 @@ def open_file_r(file_path, complete=True, gzip_exts=('.gz','.gzip'), buffer_size
  
   else:
     if sys.version_info.major > 2:
-      file_obj = open(file_path, 'rU', buffer_size, encoding='utf-8')
+      file_obj = open(file_path, 'r', buffer_size, encoding='utf-8')
       
     else:
       file_obj = open(file_path, 'rU', buffer_size)
@@ -151,7 +151,7 @@ def open_file_r(file_path, complete=True, gzip_exts=('.gz','.gzip'), buffer_size
 
 def compress_file(file_path):
 
-  in_file_obj = open(file_path, 'rU', READ_BUFFER)
+  in_file_obj = open(file_path, 'rb', READ_BUFFER)
   out_file_path = file_path + '.gz'
 
   out_file_obj = gzip.open(out_file_path, 'wb')
@@ -3017,7 +3017,7 @@ def read_chromo_names(chr_name_paths, genome_indices, re_name):
       info(msg % file_path)
       check_regular_file(file_path, critical=True)
       
-      with open(file_path, 'rU') as file_obj:
+      with open(file_path, 'r') as file_obj:
         for line in file_obj:
           line = line.strip()
  
@@ -3649,7 +3649,7 @@ def main(argv=None):
 
   arg_parse.add_argument('-o', '--out-contact-file', metavar='NCC_FILE', dest='o',
                          help='Optional output name for NCC format chromosome contact file. This' \
-                              ' option will be ignored if more than two paired FASTA files are' \
+                              ' option will be ignored if more than two paired FASTQ files are' \
                               ' input (i.e. for batch mode); automated naming will be used instead.')
 
   arg_parse.add_argument('-pdf', '--pdf-report-file', metavar='PDF_FILE', dest='pdf',
@@ -3724,9 +3724,10 @@ def main(argv=None):
                               ' single perfect match is found.')
 
   arg_parse.add_argument('-cc', '--chromo-copies', default=0, metavar='GENOME_COPIES', dest='cc',
-                         type=int, help='Number of whole-genome copies, e.g. for G2 phase;' \
+                         type=int, help='For single-cell data only. Number of whole-genome copies, e.g. for G2 phase;' \
                               ' Defaults to 1 unless as second genome index is specified' \
-                              ' for hybrid samples, in which case the default is 2.')
+                              ' for hybrid samples, in which case the default is 2.' \
+                              ' This option is ignored if the -p option is used.')
 
   arg_parse.add_argument('-lim', '--limit-reads', default=0, metavar='MAX_READS', dest='lim',
                          type=int, help='Limit the number of input reads considered: useful for' \
@@ -3841,3 +3842,14 @@ if __name__ == '__main__':
   sys.path.insert(0, main_dir)
   sys.path.insert(0, os.path.join(main_dir, 'nuc_tools')) 
   main()
+
+
+
+"""
+
+Format as .mcool, pairs text, .cool, juicer
+
+"""
+
+
+
