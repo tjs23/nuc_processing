@@ -81,6 +81,7 @@ MIN_READ_LEN = 18
 NUM_MAP_FASTAS = 10
 CLOSE_AMBIG = 1000
 CLOSE_CIS = 5000
+BAD_SCORE_MULTIPLIER = -0.4
 BOWTIE_MAX_AMBIG_SCORE_TOL = 5
 EXCLUDE_BIN_SIZE = 100000
 ID_LEN = 10
@@ -739,7 +740,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
   junct_sep_counts_pos = defaultdict(int)
   junct_sep_counts_neg = defaultdict(int)
   
-  valid_chromos = set(chromo_name_dict.values())
+  valid_chromos = set(chromo_name_dict[0].values()) | set(chromo_name_dict[1].values())
 
   if re1_files:
     valid_chromos &= set(re1_end_dict.keys())
@@ -1426,7 +1427,6 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
   
   max_score = 0
   zero_ord = QUAL_ZERO_ORDS['phred33']
-  really_bad_score = 2 * (max_score - 2 * (BOWTIE_MAX_AMBIG_SCORE_TOL+1) )
   close_second_best = 2 * BOWTIE_MAX_AMBIG_SCORE_TOL - 1
   
   # Go through same files and pair based on matching id
@@ -1461,13 +1461,14 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
       
       for i in range(4):
         j = 0
+        genome = 0 if i < 2 else 1
         
         while ids[i] == _id:
           n_map[i] += 1
           line = lines[i]
           data = line.split('\t')
           chromo = data[2]
-          chr_name = chromo_names.get(chromo, chromo)
+          chr_name = chromo_names[genome].get(chromo, chromo)
           
           if chromo != '*':
             revcomp = int(data[1]) & 0x10
@@ -1597,7 +1598,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
       pairs.sort(reverse=True)
       best_score = pairs[0][0]
       
-      if best_score < really_bad_score: # Nothing any good
+      if best_score < nbp * BAD_SCORE_MULTIPLIER: # Nothing any good
         n_hybrid_poor += 1
         continue
 
@@ -1680,7 +1681,6 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
   
   max_score = 0
   zero_ord = QUAL_ZERO_ORDS['phred33']
-  really_bad_pair_score = 2 * (max_score - 2 * (BOWTIE_MAX_AMBIG_SCORE_TOL+1) )
   close_second_best = 2 * BOWTIE_MAX_AMBIG_SCORE_TOL - 1
   
   # Go through same files and pair based on matching id
@@ -1919,7 +1919,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
       pairs.sort(reverse=True)
       best_score = pairs[0][0]
       
-      if best_score < really_bad_pair_score: # Nothing any good; generally a genome build issue
+      if best_score < nbp * BAD_SCORE_MULTIPLIER: # Nothing any good; generally a genome build issue
         n_unself += 1
         continue
         
@@ -2376,7 +2376,7 @@ def get_genome_star_sites(re_name, genome_fastas1, genome_fastas2, chromo_name_d
       for fasta_line in file_obj:
         if fasta_line[0] == '>':
           if contig and seq: # add previous
-            chromo = chromo_name_dict.get(contig, contig)
+            chromo = chromo_name_dict[is_second].get(contig, contig)
             
             if is_second:
               hybrid_name = chromo + '.b'
@@ -2400,7 +2400,7 @@ def get_genome_star_sites(re_name, genome_fastas1, genome_fastas2, chromo_name_d
       file_obj.close()
 
       if contig and seq:
-        chromo = chromo_name_dict.get(contig, contig)
+        chromo = chromo_name_dict[is_second].get(contig, contig)
             
         if is_second:
           hybrid_name = chromo + '.b'
@@ -3107,14 +3107,8 @@ def read_chromo_names(chr_name_paths, genome_indices, re_name):
 
         name_dicts[0][contig1] = name_a
         name_dicts[1][contig2] = name_b
-    
-  chr_name_dict = name_dicts[0]
-  chr_name_dict.update(name_dicts[1])
   
-  base_chromo_name_dict = orig_name_dicts[0]
-  base_chromo_name_dict.update( orig_name_dicts[1])
-  
-  return chr_name_dict, base_chromo_name_dict, hom_chromo_dict
+  return name_dicts, orig_name_dicts, hom_chromo_dict
   
 
 def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_names1=None, chr_names2=None,
@@ -3403,20 +3397,20 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
   re2_files = []
   
   if re1:
-    re1_files = [check_re_frag_file(genome_index, re1, g_fastas, base_chromo_name_dict,
+    re1_files = [check_re_frag_file(genome_index, re1, g_fastas, base_chromo_name_dict[0],
                                     align_exe, num_cpu, remap=remap)]
 
   if re2:
-    re2_files.append(check_re_frag_file(genome_index, re2, g_fastas, base_chromo_name_dict,
+    re2_files.append(check_re_frag_file(genome_index, re2, g_fastas, base_chromo_name_dict[0],
                                         align_exe, num_cpu, remap=remap))
   
   if is_hybrid:
     if re1:
-      re1_files.append(check_re_frag_file(genome_index2, re1, g_fastas2, base_chromo_name_dict,
+      re1_files.append(check_re_frag_file(genome_index2, re1, g_fastas2, base_chromo_name_dict[1],
                                           align_exe, num_cpu, remap=remap))
 
     if re2:
-      re2_files.append(check_re_frag_file(genome_index2, re2, g_fastas2, base_chromo_name_dict,
+      re2_files.append(check_re_frag_file(genome_index2, re2, g_fastas2, base_chromo_name_dict[1],
                                           align_exe, num_cpu, remap=remap))
 
   # Clip read seqs at any sequenced ligation junctions  
@@ -3452,7 +3446,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
                                               chromo_name_dict, intermed_file_root, ambig,
                                               unique_map, species_hybrid)
   else:
-    paired_ncc_file = pair_mapped_seqs(sam_file1, sam_file2, chromo_name_dict,
+    paired_ncc_file = pair_mapped_seqs(sam_file1, sam_file2, chromo_name_dict[0],
                                        intermed_file_root, ambig, unique_map)
 
   # Write SAM, if requested
