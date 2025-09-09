@@ -27,8 +27,8 @@ def main(inputFile1, inputFile2, outputDirectory, barcodeLen=3):
   if not os.path.exists(outputDirectory):
     os.makedirs(outputDirectory)
 
-  fpin1 = open(inputFile1, 'rU')
-  fpin2 = open(inputFile2, 'rU')
+  fpin1 = open(inputFile1, 'r')
+  fpin2 = open(inputFile2, 'r')
 
   barcodeCount = {}
   barcodeFp1 = {}

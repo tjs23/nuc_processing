@@ -101,7 +101,7 @@ def open_file(file_path, mode=None, gzip_exts=('.gz','.gzip')):
   if os.path.splitext(file_path)[1].lower() in gzip_exts:
     file_obj = gzip.open(file_path, mode or 'rt')
   else:
-    file_obj = open(file_path, mode or 'rU', IO_BUFFER)
+    file_obj = open(file_path, mode or 'r', IO_BUFFER)
 
   return file_obj
 

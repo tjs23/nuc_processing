@@ -136,15 +136,10 @@ def open_file_r(file_path, complete=True, gzip_exts=('.gz','.gzip'), buffer_size
     else:
       file_obj = BufferedReader(gzip.open(file_path, 'rb'), buffer_size)
     
-    if sys.version_info.major > 2:
-      file_obj = io.TextIOWrapper(file_obj, encoding="utf-8")
+    file_obj = io.TextIOWrapper(file_obj, encoding="utf-8")
  
   else:
-    if sys.version_info.major > 2:
-      file_obj = open(file_path, 'r', buffer_size, encoding='utf-8')
-      
-    else:
-      file_obj = open(file_path, 'rU', buffer_size)
+    file_obj = open(file_path, 'r', buffer_size, encoding='utf-8')
   
   return file_obj
  
@@ -3285,10 +3280,12 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
         fatal(msg)    
     
   # Get base file name for output
-  for file_path in (out_file, report_file):
-    if file_path:
-      file_root = os.path.splitext(file_path)[0]
-      break
+  
+  if out_file or report_file:
+    if out_file:
+       root_file = out_file
+    else:
+       root_file = report_file
 
   else:
     file_paths = []
@@ -3298,8 +3295,12 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
 
       file_paths.append(fastq_path)
 
-    merged_path = merge_file_names(file_paths[0], file_paths[1])
-    file_root = os.path.splitext(merged_path)[0]
+    root_file = merge_file_names(file_paths[0], file_paths[1])
+
+  for file_ext in ('.ncc','.pdf','.fq','.fastq'):
+    if root_file.endswith(file_ext):
+       file_root = root_file[:-len(file_ext)]
+       break
 
   intermed_dir = file_root + '_nuc_processing_files'
   intermed_file_root = os.path.join(intermed_dir, os.path.basename(file_root))
