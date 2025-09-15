@@ -845,7 +845,7 @@ if __name__ == '__main__':
   # Use Illumina contents file?
   # Quality based truncation? Trim short?
 
-  epilog = 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
+  epilog = 'For further help email tstevens@mrc-lmb.cam.ac.uk or wb104@cam.ac.uk'
 
   arg_parse = ArgumentParser(prog=PROG_NAME, description=DESCRIPTION,
                              epilog=epilog, prefix_chars='-', add_help=True)
