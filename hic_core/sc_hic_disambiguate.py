@@ -1,7 +1,7 @@
 """
 ---- COPYRIGHT ----------------------------------------------------------------
 
-Copyright (C) 20016-2022
+Copyright (C) 20016-2026
 Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
 
 
@@ -61,6 +61,7 @@ def _get_network_score(sep_threshold, chr_a, chr_b, pos_a, pos_b, bin_a, bin_b,
   """
   primary_limit is an early-stopping heristic to improve performance; should not be changed
   """
+  
   sep_scale = 0.5 * sep_threshold
   plim = 10.0 ** primary_limit
   score_l = 1.0
@@ -101,7 +102,7 @@ def _get_network_score(sep_threshold, chr_a, chr_b, pos_a, pos_b, bin_a, bin_b,
                 score_l += exp(-delta_2*delta_2)
               else:
                 delta_2 = max(delta_2, min_sep)/sep_scale
-                score_u += exp(-delta_2*delta_2)             
+                score_u += exp(-delta_2*delta_2)
          
         else:
           for pos_1, pos_2 in unambig:
@@ -131,8 +132,8 @@ def _get_network_score(sep_threshold, chr_a, chr_b, pos_a, pos_b, bin_a, bin_b,
           return primary_limit
 
   return log(score_l * score_u, 10.0)
-  
-  
+
+
 def _write_ambig_filtered_ncc(in_file_path, out_ncc_path, ag_data, resolved_ag=None, removed_ag=None):
   
   if not resolved_ag:
@@ -158,33 +159,31 @@ def _write_ambig_filtered_ncc(in_file_path, out_ncc_path, ag_data, resolved_ag=N
         chr_a, chr_b = chr_b, chr_a
 
       if '.' in ambig_code: # Updated NCC format
-        if int(float(ambig_code)) > 0:
+        sz = int(float(ambig_code))
+        if sz > 0:
           ambig_group += 1
+          
       else:
         ambig_group = int(ambig_code)    
-      
-      sz = len(ag_data[ambig_group])
-      
+        sz = len(ag_data[ambig_group])
+     
       if ambig_group in resolved_ag:    
         keep = 1 if i in resolved_ag[ambig_group] else 0 # Else inactivate
         
         if ambig_group in seen_res_group:
-          row[12] = '0.%d' % (keep,)
+          row[12] = f'0.{keep}'
         else:
           seen_res_group.add(ambig_group)
-          row[12] = '%d.%d'  % (sz,keep)
-                    
-        line = ' '.join(row)+'\n'
+          row[12] = f'{sz}.{keep}'
 
       elif ambig_group in removed_ag: # Inactivate
         if ambig_group in seen_res_group:
           row[12] = '0.0'
         else:
           seen_res_group.add(ambig_group)
-          row[12] = '%d.0'  % (sz,)
+          row[12] = f'{sz}.0'
            
-        line = ' '.join(row)+'\n'
-        
+      line = ' '.join(row)+'\n'
       write(line)    
       
       n += 1
@@ -292,7 +291,6 @@ def _load_bin_sort_ncc(in_ncc_path, sep_threshold):
       key = (chr_a, chr_b, bin_a, bin_b)
       ag_data[ambig_group].append((key, pos_a, pos_b, i))
       
-      
       if ambig_group in pos_ambig: 
         ambig_bins[key].append((pos_a, pos_b, ambig_group))
       else:
@@ -329,9 +327,9 @@ def _load_bin_sort_ncc(in_ncc_path, sep_threshold):
 
 def remove_isolated_unambig(in_ncc_path, out_ncc_path, threshold=ISOLATION_THRESHOLD, sep_threshold=DEFAULT_SEP_THRESHOLD, homo_trans_dens_quant=90.0):
   
-  chromos, ag_data, pos_ambig, chromo_bins, nonambig_bins, unambig_bins, ambig_bins, chromo_pair_counts = _load_bin_sort_ncc(in_ncc_path, sep_threshold)
- 
-  msg_template = ' .. processed:{:>7,} removed:{:>7,}'
+  chromos, orig_ag_data, pos_ambig, chromo_bins, nonambig_bins, unambig_bins, ambig_bins, chromo_pair_counts = _load_bin_sort_ncc(in_ncc_path, sep_threshold)
+  
+  msg_template = ' .. Processed:{:>7,} Removed:{:>7,}'
   
   all_bins = {}
   for key in set(ambig_bins) | set(nonambig_bins):
@@ -360,7 +358,9 @@ def remove_isolated_unambig(in_ncc_path, out_ncc_path, threshold=ISOLATION_THRES
   
   counts = list(bin_counts.values())
   upper_dens_thresh = np.percentile(counts, homo_trans_dens_quant)
-
+  
+  ag_data = dict(orig_ag_data)
+  
   for ag in ag_data:
     pairs = ag_data[ag]
     n_pairs = len(pairs)
@@ -458,8 +458,8 @@ def remove_isolated_unambig(in_ncc_path, out_ncc_path, threshold=ISOLATION_THRES
     if score < threshold:
       removed_ag.add(ag)
   
-  
-  _write_ambig_filtered_ncc(in_ncc_path, out_ncc_path, ag_data, resolved_ag=resolved_ag, removed_ag=removed_ag)
+  _write_ambig_filtered_ncc(in_ncc_path, out_ncc_path, orig_ag_data,
+                            resolved_ag=resolved_ag, removed_ag=removed_ag)
 
   msg = msg_template.format(it, len(removed_ag))     
   info(msg)
@@ -481,9 +481,7 @@ def network_filter_ambig(ag_data, missing_cis, trans_close, nonambig_bins, unamb
   scores = [[], [], [], []]
   start_time = t0 = time()
   
-  
   qc = []
-  #info(' .. processing')
     
   for j, ag in enumerate(ag_data):
   
@@ -509,7 +507,12 @@ def network_filter_ambig(ag_data, missing_cis, trans_close, nonambig_bins, unamb
     for key, pos_a, pos_b, line_idx in pairs:
       chr_pair = tuple(key[:2])
       
-      if chr_pair in missing_cis:
+      chr_a, chr_b = chr_pair
+      
+      if chr_a in missing_cis:
+        continue
+        
+      if chr_b in missing_cis:
         continue
         
       if (chr_pair not in trans_close) or (trans_close[chr_pair] >= min_trans_relay): 
@@ -539,7 +542,10 @@ def network_filter_ambig(ag_data, missing_cis, trans_close, nonambig_bins, unamb
       chr_a, chr_b, bin_a, bin_b = key
       contacts = nonambig_bins.get(key)
      
-      if (chr_a, chr_b) in missing_cis:
+      if chr_a in missing_cis:
+        score = 0.0
+
+      elif chr_b in missing_cis:
         score = 0.0
  
       elif contacts:
@@ -679,7 +685,7 @@ def sc_hic_disambiguate(ncc_file_paths, sep_threshold=DEFAULT_SEP_THRESHOLD, sco
 
       if intermed_maps:
         clean_pdf = file_root + '_stage1_clean_map.pdf'
-        contact_map([clean_ncc_path], clean_pdf, bin_size=None, show_chromos=None,
+        contact_map([clean_ncc_path], clean_pdf, bin_size=5e3, show_chromos=None,
                      no_separate_cis=True, is_single_cell=True)
       
       if keep_intermed:
@@ -690,14 +696,14 @@ def sc_hic_disambiguate(ncc_file_paths, sep_threshold=DEFAULT_SEP_THRESHOLD, sco
     else:
       if intermed_maps:
         clean_pdf = file_root + '_stage1_clean_map.pdf'
-        contact_map([clean_ncc_path], clean_pdf, bin_size=None, show_chromos=None,
+        contact_map([clean_ncc_path], clean_pdf, bin_size=5e3, show_chromos=None,
                      no_separate_cis=True, is_single_cell=True)
         
       resolve_contacts(clean_ncc_path, out_ncc_path, temp_ncc_path, sep_threshold, remove_isolated=True, score_threshold=score_threshold)
 
       if intermed_maps:
         filter_pdf = file_root + '_stage2_filter_map.pdf'
-        contact_map([temp_ncc_path], filter_pdf, bin_size=None, show_chromos=None,
+        contact_map([temp_ncc_path], filter_pdf, bin_size=5e3, show_chromos=None,
                      no_separate_cis=True, is_single_cell=True)
       
       if keep_intermed:
@@ -708,7 +714,7 @@ def sc_hic_disambiguate(ncc_file_paths, sep_threshold=DEFAULT_SEP_THRESHOLD, sco
         os.unlink(temp_ncc_path)
       
       out_main_pdf = file_root + '_map.pdf'
-      contact_map([out_ncc_path], out_main_pdf, bin_size=None, show_chromos=None,
+      contact_map([out_ncc_path], out_main_pdf, bin_size=5e3, show_chromos=None,
                    no_separate_cis=True, is_single_cell=True)
 
   
@@ -719,7 +725,8 @@ def main(argv=None):
   if argv is None:
     argv = sys.argv[1:]
 
-  epilog = 'For further help email tjs23@cam.ac.uk or wb104@cam.ac.uk'
+  epilog = 'For further help email tstevens@mrclmb.ac.uk or wb104@cam.ac.uk'
+
   arg_parse = ArgumentParser(prog=PROG_NAME, description=DESCRIPTION,
                              epilog=epilog, prefix_chars='-', add_help=True)
 

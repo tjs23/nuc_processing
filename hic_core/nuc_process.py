@@ -1,7 +1,7 @@
 """
 ---- COPYRIGHT ----------------------------------------------------------------
 
-Copyright (C) 20016-2022
+Copyright (C) 2016-2022
 Tim Stevens (MRC-LMB) and Wayne Boucher (University of Cambridge)
 
 
@@ -46,7 +46,7 @@ from subprocess import Popen, PIPE, call
 from math import floor
 
 PROG_NAME = 'nuc_process'
-VERSION = '1.3.3'
+VERSION = '1.3.4'
 DESCRIPTION = 'Chromatin contact paired-read Hi-C processing module for Nuc3D and NucTools'
 RE_CONF_FILE = 'enzymes.conf'
 RE_SITES = {'MboI'   : '^GATC_',
@@ -196,7 +196,7 @@ def tag_file_name(file_path, tag, file_ext=None, sep='_', ncc_tag='_nuc'):
 
 def write_sam_file(ncc_file_path, ref_sam_file_1, ref_sam_file_2):
    """
-   Convert the NCC text format to a SAM file by refering back to the original mapped SAM files.
+   Convert the NCC text format to a SAM file by referring back to the original mapped SAM files.
    Assumes entries in original SAM files are paired, for the moment
    """
 
@@ -309,10 +309,10 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
                        resolve_limit=1e3, close_cis=1e4, ambig=False):
   """
   Function to remove contacts with promiscuous ends from an NCC format file.
-  Promiscuous ends occur where a specififc restriction fragment end is involved
+  Promiscuous ends occur where a specific restriction fragment end is involved
   in more contacts that would normally be allowed given the ploidy of the cell.
 
-  resolve_limit : Allow two suitably close promiscous ends if the pairs are long range cis or trans
+  resolve_limit : Allow two suitably close promiscuous ends if the pairs are long range cis or trans
   """
   
   from itertools import combinations
@@ -471,7 +471,7 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=10000):
           n_ambig_pairs += 1
           
         # Either group is unary or the code is prioritised for homolog > trans > far > near
-        # - cold be aonly a single code index for a consistent ambigous group
+        # - could be only a single code index for a consistent ambiguous group
         if group:
           group_counts[max(group)] += 1
           group = set()
@@ -518,11 +518,11 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
                       use_re_fragments=True, is_hybrid=False):
 
   """
-  A:B B:A redundancey taken care of at this stage because the NCC file pairs are internally sorted
+  A:B B:A redundancy taken care of at this stage because the NCC file pairs are internally sorted
 
   Option to remove redundancy at he RE fragment level (or otherwise at the read level)
 
-  Choose the longest read (not most common?) as the representitive for a merge
+  Choose the longest read (not most common?) as the representative for a merge
   """
 
   out_file_name = tag_file_name(ncc_file, 'multi_read')
@@ -568,23 +568,46 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
   if line_keep: # Could be empty
     line_data = line_keep.split()
 
-    n = 1
     keep_data = [line_data[i] for i in ncc_idx]
-    len_keep = abs(int(line_data[2]) - int(line_data[2])) + abs(int(line_data[8]) - int(line_data[7]))
+    
+    #if use_re_fragments:
+    #  keep_data[1] = round(int(keep_data[1]), -3)
+    #  keep_data[4] = round(int(keep_data[4]), -3)
+    
+    chr_a1, pos_a1, str_a1, chr_b1, pos_b1, str_b1 = keep_data
+    pos_a1 = int(pos_a1)
+    pos_b1 = int(pos_a1)
+    
+    len_keep = abs(int(line_data[2]) - int(line_data[1])) + abs(int(line_data[8]) - int(line_data[7]))
     read_keep = line_data[13]
     read_ambig_keep = ambig_sizes[read_keep]
+    n = 1.0##/read_ambig_keep
 
     # Normally remove redundancy, keeping the least ambiguous or else the longest
     # - for hybrid dual-genome mapping go for the most ambiguous to be safe
     for line in sort_file_obj:
       line_data = line.split()
       curr_data = [line_data[i] for i in ncc_idx]
+    
+      # #chr_a2, pos_a2, str_a2, chr_b2, pos_b2, str_b2 = curr_data
+      # #pos_a2 = int(pos_a2)
+      # #pos_b2 = int(pos_a2)
+    
+      #if use_re_fragments:
+      #  curr_data[1] = round(int(curr_data[1]), -3)
+      #  curr_data[4] = round(int(curr_data[4]), -3)
+
       len_curr = abs(int(line_data[2]) - int(line_data[1])) + abs(int(line_data[8]) - int(line_data[7]))
       read_curr = line_data[13]
       read_ambig_curr = ambig_sizes[read_curr]
-
-      if curr_data == keep_data:
-        n += 1
+      
+      #if use_re_fragments:
+      #  supported = (chr_a1 == chr_a2) and (chr_b1 == chr_b2) and (abs(poa_a1-pos_a2) < CLOSE_AMBIG) and (abs(poa_b1-pos_b2) < CLOSE_AMBIG)
+      #else:
+      supported = curr_data == keep_data
+            
+      if supported:
+        n += 1.0##/read_ambig_curr # Weight of mapping
 
         if read_ambig_curr == read_ambig_keep: # Equally ambiguous
           if len_curr > len_keep: # This, longer repeat is better
@@ -614,13 +637,18 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
         continue
      
       else: # Not a repeat, write previous
-        group_reps[read_keep] += n
+        group_reps[read_keep] = n
         mean_redundancy += n
         len_keep = len_curr
         keep_data = curr_data
+        # #chr_a1, pos_a1, str_a1, chr_b1, pos_b1, str_b1 = chr_a2, pos_a2, str_a2, chr_b2, pos_b2, str_b2
         read_keep = read_curr
         read_ambig_keep = read_ambig_curr
-        n = 1
+        n = 1.0##/read_ambig_curr
+  
+    # Last line      
+    group_reps[read_keep] = n
+    mean_redundancy += n
 
   if keep_files:
     uniq_file_name = tag_file_name(ncc_file, 'unique_read')
@@ -642,7 +670,7 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
         if read_id in excluded_reads:
           continue
 
-        elif group_reps[read_id]/float(ambig_sizes[read_id]) < min_repeats:
+        elif group_reps[read_id]/float(ambig_sizes[read_curr]) < min_repeats:
           if keep_files:
             uniq_write(line)
           
@@ -664,7 +692,7 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
           continue
         
         if ambig > 0:
-          if group_reps[read_id]/float(ambig_sizes[read_id]) < 2:
+          if group_reps[read_id]/float(ambig_sizes[read_curr]) < 2:
              n_unique += 1
           else:
              n_redundant += 1
@@ -872,7 +900,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
 
       size_t = delta_re1_a + delta_re1_b
 
-      # With some REs (e.g. HindIII) fragments that are apprently too big may be due to star activity
+      # With some REs (e.g. HindIII) fragments that are apparently too big may be due to star activity
  
       if star_dict and size_t > max_size and len(star_dict[chr_a]) and len(star_dict[chr_b]):
 
@@ -1976,6 +2004,7 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   
   cmd_args = [align_exe,
               '-D', '20', '-R', '3', '-N', '0',  '-L', '20',  '-i', 'S,1,0.5', # similar to very-sensitive
+              '--mp', '4,2',
               '-x', genome_index,
               '-k', '2',
               '--reorder',
@@ -3296,12 +3325,15 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
       file_paths.append(fastq_path)
 
     root_file = merge_file_names(file_paths[0], file_paths[1])
-
+  
   for file_ext in ('.ncc','.pdf','.fq','.fastq'):
     if root_file.endswith(file_ext):
        file_root = root_file[:-len(file_ext)]
        break
-
+  
+  else:
+      file_root = root_file
+   
   intermed_dir = file_root + '_nuc_processing_files'
   intermed_file_root = os.path.join(intermed_dir, os.path.basename(file_root))
   if not os.path.exists(intermed_dir):
@@ -3562,7 +3594,7 @@ def nuc_process(fastq_paths, genome_index, genome_index2, re1, re2=None, chr_nam
                   no_separate_cis=False, is_single_cell=False)
 
     else:
-      contact_map([out_file], pdf_path, bin_size=None, bin_size2=None,
+      contact_map([out_file], pdf_path, bin_size=5e3, bin_size2=None,
                   no_separate_cis=False, is_single_cell=True)
   
   if is_hybrid and not is_pop_data:

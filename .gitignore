@@ -5,3 +5,10 @@ build
 dist
 .cache
 .coverage
+*.pdf
+*.ncc
+*.log
+*.gz
+*.npz
+*.txt
+*.json
