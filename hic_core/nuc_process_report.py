@@ -439,7 +439,7 @@ def nuc_process_report(json_stat_path, out_pdf_path=None, screen_gfx=False, fig_
   ax.tick_params(axis='both', which='both', labelsize=7, pad=2)
   y -= 0.04
   
-  is_single = input_stats[-4][1] == 'Yes'
+  is_single = input_stats[-5][1] == 'Yes'
   
   if redundancy_stats is not None:
   

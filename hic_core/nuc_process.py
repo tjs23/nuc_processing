@@ -82,7 +82,8 @@ NUM_MAP_FASTAS = 10
 CLOSE_AMBIG = 1000
 CLOSE_CIS = 5000
 BAD_SCORE_MULTIPLIER = -0.4
-BOWTIE_MAX_AMBIG_SCORE_TOL = 5
+AMBIG_MAX_DIFF_MULTIPLIER = 0.15
+BOWTIE_MISMATCH_PENALTY = 6
 EXCLUDE_BIN_SIZE = 100000
 ID_LEN = 10
 MIN_ADAPT_OVERLAP = 7
@@ -119,6 +120,20 @@ if os.path.exists(RE_CONF_FILE):
   for line in open(RE_CONF_FILE):
     name, site = line.split()
     RE_SITES[name] = site
+
+
+
+def section_is_logged(section):
+  
+  if os.path.exists(STAT_FILE_PATH):
+    with open(STAT_FILE_PATH) as file_obj:
+      stat_dict = json.load(file_obj)
+
+  else:
+    stat_dict = {}
+  
+  return section in stat_dict
+
 
 
 def open_file_r(file_path, complete=True, gzip_exts=('.gz','.gzip'), buffer_size=READ_BUFFER):
@@ -196,7 +211,7 @@ def tag_file_name(file_path, tag, file_ext=None, sep='_', ncc_tag='_nuc'):
 
 def write_sam_file(ncc_file_path, ref_sam_file_1, ref_sam_file_2):
    """
-   Convert the NCC text format to a SAM file by referring back to the original mapped SAM files.
+   Convert the NCC text format to a SAM file by refering back to the original mapped SAM files.
    Assumes entries in original SAM files are paired, for the moment
    """
 
@@ -312,7 +327,7 @@ def remove_promiscuous(ncc_file, num_copies=1, keep_files=True, zip_files=False,
   Promiscuous ends occur where a specific restriction fragment end is involved
   in more contacts that would normally be allowed given the ploidy of the cell.
 
-  resolve_limit : Allow two suitably close promiscuous ends if the pairs are long range cis or trans
+  resolve_limit : Allow two suitably close promiscous ends if the pairs are long range cis or trans
   """
   
   from itertools import combinations
@@ -471,7 +486,7 @@ def get_ncc_stats(ncc_file, hom_chromo_dict, far_min=10000):
           n_ambig_pairs += 1
           
         # Either group is unary or the code is prioritised for homolog > trans > far > near
-        # - could be only a single code index for a consistent ambiguous group
+        # - cold be aonly a single code index for a consistent ambigous group
         if group:
           group_counts[max(group)] += 1
           group = set()
@@ -532,104 +547,93 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
     return out_file_name
 
   # Calculate sizes of ambiguity groups
-
-  ambig_sizes = {}
+  # Prefix data with unambiguous (0) or ambiguous (1), so the two situations don't mix
+  
+  sort_file_name_temp = sort_file_name + TEMP_EXT
   n_contacts = 0
-  for line in open_file_r(ncc_file):
-    ambig, read_id = line.split()[12:14]
-    ambig = int(float(ambig,))
+  
+  with open(sort_file_name_temp, 'w') as temp_file_obj:
+    write = temp_file_obj.write
+    rambig = 1
     
-    if ambig > 0:
-      ambig_sizes[read_id] = ambig
-      n_contacts += 1
+    for line in open_file_r(ncc_file):
+      row = line.split()
+      
+      ambig, read_id = row[12:14]
+      ambig = int(float(ambig,))
+ 
+      if ambig > 0: # First pair in read
+        rambig = ambig
+        n_contacts += 1
+      
+      # Compare using strand information given we want to know which fragment END is used
+      chr_a = row[0]
+      chr_b = row[6]
+      strand_a = row[5]
+      strand_b = row[12]
+      
+      if use_re_fragments:
+         #Compare on RE fragment: is_ambig, chr_a, f_start_a, strand_a, chr_b, f_start_b, strand_b
+         pos_a = row[3]
+         pos_b = row[9]
+
+      else:
+         # Compare on read starts - does not consider ends as these can vary in read replicates
+         pos_a = row[1]
+         pos_b = row[7]
+      
+      rlen = abs(int(row[2]) - int(row[1])) + abs(int(row[8]) - int(row[7]))
+      is_ambig = int(ambig > 1)
+      write(f'{is_ambig}_{chr_a}_{pos_a}_{strand_a}_{chr_b}_{pos_b}_{strand_b} {rambig} {rlen} {read_id}\n')
 
   # Make temporary sorted file
-  cmd_args = ['sort', ncc_file]
+  cmd_args = ['sort', sort_file_name_temp]
   call(cmd_args, shell=False, stderr=None, stdin=None, stdout=open(sort_file_name, 'w'))
   sort_file_obj = open(sort_file_name, 'r')
+  os.unlink(sort_file_name_temp)
 
   n_unique = 0
   n_redundant = 0
   mean_redundancy = 0.0
 
-  # Compare using strand information given we want to know which fragment END is used
-  if use_re_fragments:
-    ncc_idx = (0,3,5,6,9,11) # Compare on RE fragment: chr_a, f_start_a, strand_a, chr_b, f_start_b, strand_b
-  else:
-    ncc_idx = (0,1,5,6,7,11) # Compare on read starts - does not consider ends as these can vary in read replicates
-
   # Remove repeats
-
   excluded_reads = set()
-  group_reps = defaultdict(int)
+  group_support = defaultdict(int)
   sort_file_obj.seek(0)
   line_keep = sort_file_obj.readline()
 
   if line_keep: # Could be empty
-    line_data = line_keep.split()
-
-    keep_data = [line_data[i] for i in ncc_idx]
-    
-    #if use_re_fragments:
-    #  keep_data[1] = round(int(keep_data[1]), -3)
-    #  keep_data[4] = round(int(keep_data[4]), -3)
-    
-    chr_a1, pos_a1, str_a1, chr_b1, pos_b1, str_b1 = keep_data
-    pos_a1 = int(pos_a1)
-    pos_b1 = int(pos_a1)
-    
-    len_keep = abs(int(line_data[2]) - int(line_data[1])) + abs(int(line_data[8]) - int(line_data[7]))
-    read_keep = line_data[13]
-    read_ambig_keep = ambig_sizes[read_keep]
-    n = 1.0##/read_ambig_keep
+    keep_data, read_ambig_keep, len_keep, read_keep = line_keep.split()
+    len_keep = int(len_keep)
+    read_ambig_keep = int(read_ambig_keep)
+    n = 1.0
 
     # Normally remove redundancy, keeping the least ambiguous or else the longest
     # - for hybrid dual-genome mapping go for the most ambiguous to be safe
     for line in sort_file_obj:
-      line_data = line.split()
-      curr_data = [line_data[i] for i in ncc_idx]
-    
-      # #chr_a2, pos_a2, str_a2, chr_b2, pos_b2, str_b2 = curr_data
-      # #pos_a2 = int(pos_a2)
-      # #pos_b2 = int(pos_a2)
-    
-      #if use_re_fragments:
-      #  curr_data[1] = round(int(curr_data[1]), -3)
-      #  curr_data[4] = round(int(curr_data[4]), -3)
-
-      len_curr = abs(int(line_data[2]) - int(line_data[1])) + abs(int(line_data[8]) - int(line_data[7]))
-      read_curr = line_data[13]
-      read_ambig_curr = ambig_sizes[read_curr]
+      curr_data, read_ambig_curr, len_curr, read_curr = line.split()
+      len_curr = int(len_curr)
+      read_ambig_curr = int(read_ambig_curr)
       
-      #if use_re_fragments:
-      #  supported = (chr_a1 == chr_a2) and (chr_b1 == chr_b2) and (abs(poa_a1-pos_a2) < CLOSE_AMBIG) and (abs(poa_b1-pos_b2) < CLOSE_AMBIG)
-      #else:
       supported = curr_data == keep_data
-            
       if supported:
-        n += 1.0##/read_ambig_curr # Weight of mapping
+        n += 1.0
 
         if read_ambig_curr == read_ambig_keep: # Equally ambiguous
-          if len_curr > len_keep: # This, longer repeat is better
+          if (len_curr > len_keep) or ((len_curr == len_keep) and (read_curr > read_keep)): # This, longer repeat is better, or tie break on read ID
             excluded_reads.add(read_keep) # Remove prev kept group
-            len_keep = len_curr
-            read_ambig_keep = read_ambig_curr
-            read_keep = read_curr
+            len_keep, read_ambig_keep, read_keep = len_curr, read_ambig_curr, read_curr
 
           else: # This repeat is worse
             excluded_reads.add(read_curr) # Remove this group
 
         elif read_ambig_curr > read_ambig_keep and is_hybrid: # For hybrids keep the more ambiguous
           excluded_reads.add(read_keep) # Remove prev kept group
-          len_keep = len_curr
-          read_ambig_keep = read_ambig_curr
-          read_keep = read_curr
+          len_keep, read_ambig_keep, read_keep = len_curr, read_ambig_curr, read_curr
 
         elif read_ambig_curr < read_ambig_keep and not is_hybrid: # Normally better to keep this less ambiguous repeat
           excluded_reads.add(read_keep) # Remove prev kept group
-          len_keep = len_curr
-          read_ambig_keep = read_ambig_curr
-          read_keep = read_curr
+          len_keep, read_ambig_keep, read_keep = len_curr, read_ambig_curr, read_curr
 
         else: # Keep the old one
           excluded_reads.add(read_curr) # Remove this group
@@ -637,18 +641,17 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
         continue
      
       else: # Not a repeat, write previous
-        group_reps[read_keep] = n
-        mean_redundancy += n
+        group_support[read_keep] += n  # Add over all ambig fragment pairs
+        mean_redundancy += n/read_ambig_curr
         len_keep = len_curr
         keep_data = curr_data
-        # #chr_a1, pos_a1, str_a1, chr_b1, pos_b1, str_b1 = chr_a2, pos_a2, str_a2, chr_b2, pos_b2, str_b2
         read_keep = read_curr
         read_ambig_keep = read_ambig_curr
-        n = 1.0##/read_ambig_curr
+        n = 1.0
   
     # Last line      
-    group_reps[read_keep] = n
-    mean_redundancy += n
+    group_support[read_keep] += n
+    mean_redundancy += n/read_ambig_curr
 
   if keep_files:
     uniq_file_name = tag_file_name(ncc_file, 'unique_read')
@@ -663,24 +666,29 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
     write = out_file_obj.write
     
     if use_re_fragments: # E.g. single-cell
+      rambig = 1
+    
       for line in in_file_obj:
         ambig, read_id = line.split()[12:14]
         ambig = int(float(ambig))
-
+        
+        if ambig > 0:
+           rambig = ambig
+        
         if read_id in excluded_reads:
           continue
 
-        elif group_reps[read_id]/float(ambig_sizes[read_curr]) < min_repeats:
+        elif group_support[read_id]/float(rambig) < min_repeats:
           if keep_files:
             uniq_write(line)
           
-          if ambig > 0: 
+          if ambig > 0: # First pair in read
             n_unique += 1
 
         else:
-          write(line)
+          write(line) # Only supported are kept for single-cell data
           
-          if ambig > 0: 
+          if ambig > 0: # First pair in read
             n_redundant += 1
     
     else: # E.g. bulk/population
@@ -691,13 +699,13 @@ def remove_redundancy(ncc_file, keep_files=True, zip_files=False, min_repeats=2,
         if read_id in excluded_reads:
           continue
         
-        if ambig > 0:
-          if group_reps[read_id]/float(ambig_sizes[read_curr]) < 2:
+        if ambig > 0: # First pair in read, only count read once
+          if group_support[read_id]/float(ambig) < 2:
              n_unique += 1
           else:
              n_redundant += 1
           
-        write(line)
+        write(line) # Supported and unsupported are kept
   
   if keep_files:
     if zip_files:
@@ -900,7 +908,7 @@ def filter_pairs(pair_ncc_file, re1_files, re2_files, chromo_name_dict, hom_chro
 
       size_t = delta_re1_a + delta_re1_b
 
-      # With some REs (e.g. HindIII) fragments that are apparently too big may be due to star activity
+      # With some REs (e.g. HindIII) fragments that are apprently too big may be due to star activity
  
       if star_dict and size_t > max_size and len(star_dict[chr_a]) and len(star_dict[chr_b]):
 
@@ -1450,7 +1458,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
   
   max_score = 0
   zero_ord = QUAL_ZERO_ORDS['phred33']
-  close_second_best = 2 * BOWTIE_MAX_AMBIG_SCORE_TOL - 1
+  close_second_best = 2 * BOWTIE_MISMATCH_PENALTY - 3
   
   # Go through same files and pair based on matching id
   # Write out any multi-position mapings
@@ -1525,7 +1533,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
             if revcomp:
               start, end = end, start  # The sequencing read started from the other end
             
-            ncc = (chr_name, start, end, 0, 0, '-' if revcomp else '+') # Strand info kept because ends can be diffferent for replicate reads, no Re fragment positions, yet
+            ncc = (chr_name, start, end, 0, 0, '-' if revcomp else '+') # Strand info kept because ends can be diffferent for replicate reads, no RE fragment positions, yet
             contacts[i].append((ncc, score))
             scores[i].append(score)
             
@@ -1553,7 +1561,7 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
             n_best_a = scores[a].count(max_score) # Zero is best/perfect score in end-to-end mode, 2 * seq len in local
             n_best_b = scores[b].count(max_score)
             
-            if n_best_a * n_best_b == 1: # Only one perfect pair
+            if n_best_a * n_best_b == 1: # Only one perfect pair for the genotype
               i = scores[a].index(max_score)
               j = scores[b].index(max_score)
               
@@ -1626,7 +1634,10 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
         continue
 
       else:
-        pairs = [x for x in pairs if x[0] >= best_score-BOWTIE_MAX_AMBIG_SCORE_TOL]
+        #pairs = [x for x in pairs if x[0] >= best_score-BOWTIE_MISMATCH_PENALTY]
+        max_score_diff = AMBIG_MAX_DIFF_MULTIPLIER * nbp # e.g. 0.1 means a second pair must have a score at least best - 15 (for 150 bp read)
+        score_lim = max(best_score-max_score_diff, pairs[1][0])
+        pairs = [x for x in pairs if x[0] >= score_lim]
                 
       ambig_code = float(len(pairs))
       is_pos_ambig = False
@@ -1704,7 +1715,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
   
   max_score = 0
   zero_ord = QUAL_ZERO_ORDS['phred33']
-  close_second_best = 2 * BOWTIE_MAX_AMBIG_SCORE_TOL - 1
+  close_second_best = 2 * BOWTIE_MISMATCH_PENALTY - 1
   
   # Go through same files and pair based on matching id
   # Write out any to-many mapings to ambiguous
@@ -1946,7 +1957,7 @@ def pair_mapped_seqs(sam_file1, sam_file2, chromo_names, file_root,
         n_unself += 1
         continue
         
-      pairs = [x for x in pairs if x[0] >= best_score-BOWTIE_MAX_AMBIG_SCORE_TOL] 
+      pairs = [x for x in pairs if x[0] >= best_score-BOWTIE_MISMATCH_PENALTY] 
       n_poss = len(pairs)
       
       if n_poss > 1:
@@ -2004,7 +2015,7 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   
   cmd_args = [align_exe,
               '-D', '20', '-R', '3', '-N', '0',  '-L', '20',  '-i', 'S,1,0.5', # similar to very-sensitive
-              '--mp', '4,2',
+              '--mp', '6,2',
               '-x', genome_index,
               '-k', '2',
               '--reorder',
@@ -2955,18 +2966,6 @@ def get_fastq_qual_scheme(file_path):
     scheme = 'phred33'
 
   return scheme
-
-
-def section_is_logged(section):
-  
-  if os.path.exists(STAT_FILE_PATH):
-    with open(STAT_FILE_PATH) as file_obj:
-      stat_dict = json.load(file_obj)
-
-  else:
-    stat_dict = {}
-  
-  return section in stat_dict
   
 
 def log_report(section, data_pairs, extra_dict=None):
