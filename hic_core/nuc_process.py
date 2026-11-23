@@ -81,8 +81,9 @@ MIN_READ_LEN = 18
 NUM_MAP_FASTAS = 10
 CLOSE_AMBIG = 1000
 CLOSE_CIS = 5000
-BAD_SCORE_MULTIPLIER = -0.4
-AMBIG_MAX_DIFF_MULTIPLIER = 0.15
+BAD_SCORE_MULTIPLIER = -0.3
+AMBIG_MAX_DIFF_MULTIPLIER = 0.12
+SECOND_BEST_LIMIT = -0.18
 BOWTIE_MISMATCH_PENALTY = 6
 EXCLUDE_BIN_SIZE = 100000
 ID_LEN = 10
@@ -90,7 +91,7 @@ MIN_ADAPT_OVERLAP = 7
 INF = float('inf')
 SCORE_TAG = re.compile(r'\sAS:i:(\S+).+\sMD:Z:(\S+)')
 SCORE_TAG_SEARCH = SCORE_TAG.search
-FILENAME_SPLIT_PATT = re.compile('[_\.]')
+FILENAME_SPLIT_PATT = re.compile(r'[_\.]')
 NCC_FORMAT = '%s %d %d %d %d %s %s %d %d %d %d %s %.1f %d %d\n'
 LOG_FILE_PATH = None
 STAT_FILE_PATH = None
@@ -1636,7 +1637,19 @@ def pair_mapped_hybrid_seqs(sam_file1, sam_file2, sam_file3, sam_file4, chromo_n
       else:
         #pairs = [x for x in pairs if x[0] >= best_score-BOWTIE_MISMATCH_PENALTY]
         max_score_diff = AMBIG_MAX_DIFF_MULTIPLIER * nbp # e.g. 0.1 means a second pair must have a score at least best - 15 (for 150 bp read)
-        score_lim = max(best_score-max_score_diff, pairs[1][0])
+        
+        ## debugging code:
+        #gap_to_second = best_score-pairs[1][0]
+        #with open("/mnt/data/users/xm227/P127_P128_nuc_process/list_of_scores_P127E9.txt", "a") as score_report:
+          #score_report.write(str(gap_to_second))
+          #score_report.write(str(best_score) +','+ str(pairs[1][0])+','+str(nbp))
+          #score_report.write('\n')
+
+        #score_lim = max(best_score-max_score_diff, pairs[1][0])
+        second_best_limit = SECOND_BEST_LIMIT * nbp
+        score_lim_1 = min(best_score-max_score_diff, second_best_limit)
+        score_lim = max(score_lim_1, pairs[1][0])
+
         pairs = [x for x in pairs if x[0] >= score_lim]
                 
       ambig_code = float(len(pairs))
@@ -2006,10 +2019,10 @@ def map_reads(fastq_file, genome_index, align_exe, num_cpu, ambig, qual_scheme, 
   if os.path.exists(sam_file_path) and not os.path.exists(sam_file_path_temp):
     return sam_file_path
 
-  patt_1 = re.compile('(\d+) reads; of these:')
-  patt_2 = re.compile('(\d+) \(.+\) aligned exactly 1 time')
-  patt_3 = re.compile('(\d+) \(.+\) aligned 0 times')
-  patt_4 = re.compile('(\d+) \(.+\) aligned >1 times')
+  patt_1 = re.compile(r'(\d+) reads; of these:')
+  patt_2 = re.compile(r'(\d+) \(.+\) aligned exactly 1 time')
+  patt_3 = re.compile(r'(\d+) \(.+\) aligned 0 times')
+  patt_4 = re.compile(r'(\d+) \(.+\) aligned >1 times')
   
   ##### Micro-C keep unmapped reads ends for another go...
   
@@ -3825,7 +3838,7 @@ def main(argv=None):
     re1 = None
   
   if sizes:
-    sizes = sorted([int(x) for x in re.split('\D+', sizes)])
+    sizes = sorted([int(x) for x in re.split(r'\D+', sizes)])
 
   if not fastq_paths:
     msg = 'No FASTQ paths specified'
