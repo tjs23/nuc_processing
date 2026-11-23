@@ -329,6 +329,9 @@ def remove_isolated_unambig(in_ncc_path, out_ncc_path, threshold=ISOLATION_THRES
   
   chromos, orig_ag_data, pos_ambig, chromo_bins, nonambig_bins, unambig_bins, ambig_bins, chromo_pair_counts = _load_bin_sort_ncc(in_ncc_path, sep_threshold)
   
+  ##EDIT 
+  small_chr_for_trans_contacts = ['chr15','chr16','chr17','chr18','chr19'] 
+  
   msg_template = ' .. Processed:{:>7,} Removed:{:>7,}'
   
   all_bins = {}
@@ -455,8 +458,12 @@ def remove_isolated_unambig(in_ncc_path, out_ncc_path, threshold=ISOLATION_THRES
     else:
       score = 0.0
      
-    if score < threshold:
-      removed_ag.add(ag)
+    if score < threshold: ##EDIT
+      root_a = chr_a.split('.')[0]
+      root_b = chr_b.split('.')[0]
+    
+      if not ((root_a != root_b) and ((root_a in small_chr_for_trans_contacts) or (root_b in small_chr_for_trans_contacts)) ):
+        removed_ag.add(ag)
   
   _write_ambig_filtered_ncc(in_ncc_path, out_ncc_path, orig_ag_data,
                             resolved_ag=resolved_ag, removed_ag=removed_ag)
