@@ -691,7 +691,7 @@ def get_homolog_partition_exclusions(chromos, ag_data, unambig_contacts, unambig
   width = 1 + 8 * partition_bin_sigma
   kernel = signal.windows.gaussian(width, std=partition_bin_sigma)
   
-  from matplotlib import pyplot as plt
+  #from matplotlib import pyplot as plt
   
   for chr_1 in chromos:
       pos_max_1 = chr_max[chr_1]
