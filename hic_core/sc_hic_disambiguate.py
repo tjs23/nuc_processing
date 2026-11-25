@@ -744,15 +744,15 @@ def get_homolog_partition_exclusions(chromos, ag_data, unambig_contacts, unambig
                           influence[ebin] -= 1.0
               
               # # Plots to debug & visualise homologue exclusion partitioning
-              plt.plot(influence)
+              #plt.plot(influence)
               influence = np.convolve(influence, kernel, 'full')
               p = len(kernel)//2
               influence = influence[p:p+nbins_1]
               allowed_bins_a = list(np.flatnonzero(influence > 0.0))
               allowed_bins_b = list(np.flatnonzero(influence < 0.0))
               
-              plt.plot(influence)
-              plt.show()
+              #plt.plot(influence)
+              #plt.show()
               
               # Mutual exclusion between homolog chromos to other chr
               excluded_unambig[chr_1][chr_2a].update(allowed_bins_b)
